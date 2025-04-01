@@ -60,7 +60,7 @@ inline da_status register_dbscan_options(da_options::OptionRegistry &opts,
         os = std::make_shared<OptionString>(
             OptionString("algorithm", "Choice of algorithm (reserved for future use).",
                          {{"brute", brute},
-                          {"brute serial", brute_serial},
+                          {"brute parallel", brute_parallel},
                           {"kd tree", kd_tree},
                           {"ball tree", ball_tree},
                           {"auto", automatic}},

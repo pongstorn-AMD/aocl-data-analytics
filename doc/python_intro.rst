@@ -40,7 +40,10 @@ To install the AOCL-DA Python API simply use the command ``pip install aoclda-*.
 For Linux users, if you find that your system is incompatible with the supplied wheel, you can instead install the Python package using the Spack recipe at the following link: https://www.amd.com/en/developer/zen-software-studio/applications/spack/spack-aocl.html
 
 .. note::
-   Python support on Windows is currently experimental, and building from source is required. Source code and compilation instructions are available at https://github.com/amd/aocl-data-analytics/. If you encounter issues, please e-mail us on
+   Python support on Windows is currently experimental.
+   The Python wheels downloaded from https://www.amd.com/en/developer/aocl.html do not include the LBFGSB linear model solver or the nonlinear least squares solver.
+   To access these, building from source is required. Source code and compilation instructions are available at https://github.com/amd/aocl-data-analytics/.
+   If you encounter issues, please e-mail us on
    toolchainsupport@amd.com.
 
 NumPy arrays

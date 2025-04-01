@@ -63,15 +63,15 @@ the SVC in its primal form, poses the following problem:
    y_i (\beta^\top \phi(x_i) + b ) &\ge 1 - \xi_i,\quad
    \xi_i \ge 0,
 
-where :math:`\beta` represents the vector of coefficients, also known as the weights, associated with each input feature, :math:`b` is the bias term, 
-:math:`\phi` is a (possibly nonlinear) mapping defined by a kernel, :math:`C > 0` is a regularization parameter controlling the trade-off between 
+where :math:`\beta` represents the vector of coefficients, also known as the weights, associated with each input feature, :math:`b` is the bias term,
+:math:`\phi` is a (possibly nonlinear) mapping defined by a kernel, :math:`C > 0` is a regularization parameter controlling the trade-off between
 margin maximization and misclassification, and :math:`\xi_i` (known as a slack variable) is the distance from the :math:`i`-th sample to the correct boundary.
 
-Minimizing the norm of the coefficients leads to maximizing the margin between classes. Meanwhile, slack variables introduce a penalty for misclassification 
-errors; if a data point is correctly classified, :math:`\xi_i` is 0, otherwise, :math:`\xi_i` is greater than 0. The optimal hyperplane is determined by 
+Minimizing the norm of the coefficients leads to maximizing the margin between classes. Meanwhile, slack variables introduce a penalty for misclassification
+errors; if a data point is correctly classified, :math:`\xi_i` is 0, otherwise, :math:`\xi_i` is greater than 0. The optimal hyperplane is determined by
 a subset of the training samples known as *support vectors*, which lie on or within the margin.
 
-Since the feature space can be high-dimensional or data might not be linearly separable, it is more convenient to solve the dual version of this problem. 
+Since the feature space can be high-dimensional or data might not be linearly separable, it is more convenient to solve the dual version of this problem.
 This formulation focuses on the dual coefficients :math:`\alpha_i` rather than explicit feature transformations. The corresponding objective problem is:
 
 .. math::
@@ -82,7 +82,7 @@ This formulation focuses on the dual coefficients :math:`\alpha_i` rather than e
    0 \le \alpha_i \le C,\quad
    \sum_{i=1}^{n} \alpha_i y_i = 0,
 
-where :math:`K(x_i, x_j) = \phi(x_i)^\top \phi(x_j)` is the kernel function. This eliminates the need to perform an explicit mapping :math:`\phi(x)`, allowing SVMs to handle 
+where :math:`K(x_i, x_j) = \phi(x_i)^\top \phi(x_j)` is the kernel function. This eliminates the need to perform an explicit mapping :math:`\phi(x)`, allowing SVMs to handle
 both linear and nonlinear relationships in the data. The decision function is then given by
 
 .. math::
@@ -91,21 +91,21 @@ both linear and nonlinear relationships in the data. The decision function is th
 
 and predictions are made based on the sign of :math:`f(x)`.
 
-Multi-class classification with SVMs is approached using a **one-vs-one** strategy, which decomposes the multi-class task in a way that each class is paired with each 
-other to form :math:`\frac{n_{\mathrm{class}} \times (n_{\mathrm{class}}-1)}{2}` binary classification submodels. Each submodel learns to distinguish between two 
+Multi-class classification with SVMs is approached using a **one-vs-one** strategy, which decomposes the multi-class task in a way that each class is paired with each
+other to form :math:`\frac{n_{\mathrm{class}} \times (n_{\mathrm{class}}-1)}{2}` binary classification submodels. Each submodel learns to distinguish between two
 classes. The final label is determined by aggregating the results of these binary decisions, by a voting mechanism.
 
 .. note::
 
-   In :ref:`da_svm_decision_function_? <da_svm_decision_function>` you can access decision function values in both OvO (one-vs-one) and OvR (one-vs-rest) shapes. 
-   In the one-vs-rest (OvR) approach, :math:`(n_{\mathrm{class}} - 1)` subproblems are defined, each separating a single class from all remaining classes. 
+   In :ref:`da_svm_decision_function_? <da_svm_decision_function>` you can access decision function values in both OvO (one-vs-one) and OvR (one-vs-rest) shapes.
+   In the one-vs-rest (OvR) approach, :math:`(n_{\mathrm{class}} - 1)` subproblems are defined, each separating a single class from all remaining classes.
    Note that in our case, OvR decision values are derived from OvO, so this setting does not affect the underlying training process.
 
 For regression, a similar formulation is used, minimizing errors within an margin of tolerance :math:`\epsilon` around the regression function.
 
 Implementation details
 ----------------------
-We implement ThunderSVM (see :cite:t:`wenthundersvm18`), a specialized variant of the Sequential Minimal Optimization (SMO) algorithm, to solve the dual problem. 
+We implement ThunderSVM (see cite:t:`da_wenthundersvm18`), a specialized variant of the Sequential Minimal Optimization (SMO) algorithm, to solve the dual problem.
 This approach iteratively decomposes the dual problem into smaller subproblems of certain size, and solves each with SMO until the overall solution converges.
 
 
@@ -142,16 +142,16 @@ The standard way of computing SVM using AOCL-DA is as follows.
          * Number of support vectors per class (:cpp:enumerator:`da_svm_n_support_vectors_per_class`). Vector of size :math:`(n_{\mathrm{class}},\,)`.
 
          * Support vectors (:cpp:enumerator:`da_svm_support_vectors`): The subset of training samples that lie on or within the margin. Matrix of size :math:`(n_{\mathrm{support\_vectors}},\, n_{\mathrm{features}})`.
-  
+
          * Bias (intercept) (:cpp:enumerator:`da_svm_bias`): The bias term in the decision function. Vector of size :math:`(n_{\mathrm{class}}-1,\,)`.
 
          * Dual coefficients (:cpp:enumerator:`da_svm_dual_coef`): :math:`\alpha` in the dual problem. Weights assigned to each support vector, reflecting their importance in defining the optimal decision boundary. Matrix of size :math:`(n_{\mathrm{support\_vectors}},\, n_{\mathrm{class}}-1)`.
 
          * Indexes to support vectors (:cpp:enumerator:`da_svm_idx_support_vectors`). Vector of size :math:`(n_{\mathrm{support\_vectors}},\,)`.
-         
+
          * Number of iterations (:cpp:enumerator:`da_svm_n_iterations`). In this context it counts the number of SMO subproblems solved, for each classifier. Vector of size :math:`(n_{\mathrm{classifiers}},\,)`.
 
-         * Some solvers provide extra information. :cpp:enumerator:`da_svm_rinfo`, when available, contains the
+         * Some solvers provide extra information. :cpp:enumerator:`da_result_::da_rinfo`, when available, contains the
            info[100] array with the following values:
 
            * info[0]: number of rows in the input matrix,

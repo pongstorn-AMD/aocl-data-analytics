@@ -1,5 +1,5 @@
 ..
-    Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+    Copyright (C) 2023-2025 Advanced Micro Devices, Inc. All rights reserved.
 
     Redistribution and use in source and binary forms, with or without modification,
     are permitted provided that the following conditions are met:
@@ -127,12 +127,16 @@ As an example, if :math:`K=2`, the loss function simplifies to,
 As in the linear regression model, :math:`\ell_1` or :math:`\ell_2` regularization can be applied by adding the corresponding
 penalty term to the cost function.
 
+When the model uses :math:`\ell_1` regularization is it also known by the name of lasso, while
+when using :math:`\ell_2` is it also called a ridge model. When both regularization terms are present then it is termed an
+elastic-net model.
+
 .. only:: internal
 
     Extensions
     ==========
 
-    Beyond MSE regression, ridge regression, lasso, and logistic regression, there are other classes of linear
+    Beyond MSE regression, ridge regression, lasso, elastic-net and logistic regression, there are other classes of linear
     models which are not currently supported by AOCL-DA.  These include,
 
     * Weighted residuals - loss function is of form :math:`\sum_{i=1}^n w_i r_i = \sum_{i=1}^n w_i (y_i - \beta X_i)^2`
@@ -184,21 +188,19 @@ Different methods are available to compute the models. The method is chosen auto
 
 **Iterative solvers**
 
-* L-BFGS-B: a solver aimed at minimizing smooth nonlinear functions (:cite:t:`lbfgsb`). It can be used to compute both MSE and logistic models with or without :math:`\ell_2` regularization. It is not suitable when an :math:`\ell_1` regularization term is required.
-
-* Coordinate descent: a solver aimed at minimizing nonlinear functions.
-  It is suitable for linear models with an :math:`\ell_1` regularization term and elastic nets (:cite:t:`coord_elastic`, :cite:t:`elnet1`).
+* L-BFGS-B: a solver aimed at minimizing smooth nonlinear functions (:cite:t:`da_lbfgsb`). It can be used to compute both MSE and logistic models with or without :math:`\ell_2` regularization. It is not suitable when an :math:`\ell_1` regularization term is required.
 
   .. note::
 
-    The coordinate descent method implemented is optimized to solve lasso or elastic net problems.
-    For ridge or unregularized problems the use of any alternative methods is recommended.
+   Our prebuilt Windows Python wheels (https://www.amd.com/en/developer/aocl.html) do not include the L-BFGS-B solver. To access it, building from source is required. Source code and compilation instructions are available at https://github.com/amd/aocl-data-analytics/. If you encounter issues, please e-mail us on toolchainsupport@amd.com.
 
-  .. warning::
+* Coordinate descent: a solver aimed at minimizing nonlinear functions.
+  It is suitable for linear models with an :math:`\ell_1` regularization term or elastic-net (:cite:t:`da_coord_elastic`, :cite:t:`da_elnet1`).
 
-    The implemented coordinate descent method is designed to fit standardized data. As such, it should not be used with the scaling method
-    set to anything other than :code:`scaling only` (default), or :code:`standardize` (see next section). Using any other type of scaling will result in lack of
-    convergence or unexpected results.
+  .. note::
+
+    The coordinate descent method implemented is optimized to solve lasso or elastic-net problems.
+    For ridge or unregularized problems the use of any other method is recommended.
 
 * Conjugate gradient: a solver aimed at finding a solution to a system of linear equations.
   It can be used to compute linear regression with or without :math:`\ell_2` regularization.
@@ -220,7 +222,7 @@ The optional parameter *scaling* controls the scaling of the data. It defaults t
     :header: Method, option *optim method*, option *scaling*
 
     Conjugate Gradient Method,    :code:`cg`,     :code:`centering` or :code:`none`
-    Coordinate Descent Method,    :code:`coord`,  :code:`scale only`
+    Coordinate Descent Method,    :code:`coord`,  :code:`centering` or :code:`none`
     Singular Value Decomposition, :code:`svd`,    :code:`centering`
     QR Factorization,             :code:`qr`,     :code:`centering`
     Cholesky Factorization,       :code:`cholesky`,  :code:`centering` or :code:`none`
@@ -273,12 +275,53 @@ columns of the predictor matrix :math:`X`.
 
 .. note::
 
-    Scaling types :code:`scale only` and :code:`standardize` also affect the regularization penalty term :math:`\lambda` in :eq:`loss`.
-
     Iterative solvers can show the convergence progress by printing to standard output some progress metric for each iteration (as specified by the optional parameter *print level*).
     It is important to note that all reported metrics are based on the rescaled data.
 
     When requesting information from the handle, after training the model, the reported metrics are also based on the scaling type used.
+
+    Furthermore, the coordinate descent solver when printing iteration information, the more expensive metrics,
+    such as the optimality measure (dual gap) is only calculated when required to monitor convergence.
+    To reduce computational cost it is not calculated at each iteration and as a placeholder the last computed optimality
+    measure is reported. In any case, before terminating the optimality measure is recomputed.
+
+.. note::
+
+    **Data scaling and elastic-net regression**
+
+    The coordinate descent solver can internally rescale the regularization penalty parameter :math:`\lambda` in :eq:`loss`,
+    depending on the type of scaling performed on the input feature matrix.
+    This rescaling matches the expected behavior of the elastic-net literature.
+
+    .. only:: internal
+
+        **Further details**
+
+        The coordinate descent solver can internally rescale the regularization penalty parameter :math:`\lambda` in :eq:`loss`
+        by :math:`N=n_{\mathrm{samples}}`
+        depending on the type of scaling performed on the input feature matrix. This is done for both lasso and elastic-net models
+        but not for ridge, in which case :math:`\lambda` is not rescaled.
+        The choice to rescale is made to match the behaviour of other well established elastic-net solvers.
+
+        When `scaling = none` or `centering`, :math:`\lambda` is rescaled in the lasso and elastic-net models and produces
+        the same behaviour to sklearn's lasso, elastic-net and ridge solvers.
+
+        In this context, not rescaling :math:`\lambda` in ridge model implies a non-smooth behaviour at the :math:`\alpha=0` extreme.
+        The coefficient's path has a discontinuity when transitioning from :math:`\beta_{\alpha<0}(\lambda)` to
+        :math:`\beta_{\alpha=0}(\lambda)`. The solution coefficients relationship between these is given by
+
+        .. math::
+
+            \beta_{\text{elnet}(\alpha=0)}(\lambda) = \beta_{\text{ridge}}\left(\frac{\lambda}{N}\right).
+
+        When `scaling = standardize` or `scale only`, :math:`\lambda` is rescaled for all models and the
+        discontinuity is not present, matching the behaviour with GLMNet. In this circumstance, the coefficient relationship
+        is
+
+        .. math::
+
+            \beta_{\text{ridge}}(\lambda) = \beta_{\text{elnet}}(\lambda).
+
 
 Initial coefficients
 ====================
@@ -287,10 +330,12 @@ For iterative solvers, it is possible to provide a warm-start for the process vi
 When provided with too many coefficients, only the first :math:`k` coefficients will be used, where :math:`k` is the expected number of coefficients. The intercept will always be
 the last member of the provided array. If too few coefficients are provided, the initial guess will be ignored.
 
-.. warning::
+.. note::
 
-    For the conjugate gradient solver in the underdetermined case (:math:`n_{\mathrm{features}} > n_{\mathrm{samples}}`) we are solving the dual problem, and thus the initial coefficients
-    should also be dual (so that the expected number of coefficients :math:`k` is equal to :math:`n_{\mathrm{samples}}` instead of :math:`n_{\mathrm{features}}`).
+    For the conjugate gradient solver in the underdetermined case (:math:`n_{\mathrm{features}} > n_{\mathrm{samples}}`)
+    the dual problem is solved, and the initial coefficients provided
+    should be the dual ones (the expected number of coefficients :math:`k` is equal to :math:`n_{\mathrm{samples}}`
+    instead of :math:`n_{\mathrm{features}}`).
 
 Initial coefficients can be provided in the following way:
 
@@ -301,6 +346,19 @@ Initial coefficients can be provided in the following way:
 
       Provide :code:`x0` parameter when calling :func:`aoclda.linear_model.linmod.fit`.
 
+      Set :code:`warm_start` option to :code:`True` in :func:`aoclda.linear_model.linmod`. This will turn on automatic reuse of coefficients from the previous :func:`aoclda.linear_model.linmod.fit` call.
+      Note that when the expected number of coefficients changes (due to different number of columns in dataset), we will either truncate previous coefficients or pad them with 0 to match the expected size.
+      For example, when data initially had 3 features and we fit model with intercept, the layout of coefficients looks like: :math:`[\mathrm{feat}_1, \mathrm{feat}_2, \mathrm{feat}_3, \mathrm{intercept}]`.
+      Now, using :code:`warm_start` with new dataset that has 4 features will result in supplying initial coefficients: :math:`[\mathrm{feat}_1, \mathrm{feat}_2, \mathrm{feat}_3, 0.0, \mathrm{intercept}]`.
+      Conversely, supplying with data with 2 features, will reuse only first 2 coefficients from previous call: :math:`[\mathrm{feat}_1, \mathrm{feat}_2, \mathrm{intercept}]`.
+      Analogously, when coefficients are a matrix (multi-class Logistic Regression), it truncates or pads with zeros the entire column(s) of the coefficient matrix.
+
+      .. warning::
+
+         There are following limitations to reusing coefficients from previous fit:
+
+            - In multi-class Logistic Regression, if number of classes has changed in comparison to previous fit.
+            - If Conjugate Gradient method has been used to first fit well-determined data, and then it is attempted to fit it on under-determined data.
 
    .. tab-item:: C
       :sync: C
@@ -325,27 +383,35 @@ The standard way of computing a linear model using AOCL-DA is as follows.
    .. tab-item:: C
       :sync: C
 
-      1. Initialize a :cpp:type:`da_handle` with :cpp:type:`da_handle_type` ``da_handle_linmod``.
-      2. Pass data to the handle using :ref:`da_linmod_define_features_? <da_linmod_define_features>`.
-      3. Customize the model using :ref:`da_options_set_? <da_options_set>` (see :ref:`below <linmod_options>` for a list of the available options).
-      4. Compute the linear model using :ref:`da_linmod_fit_? <da_linmod_fit>`.
-      5. Evaluate the model on new data using :ref:`da_linmod_evaluate_model_? <da_linmod_evaluate_model>`.
-      6. Extract results using :ref:`da_handle_get_result_? <da_handle_get_result>`. The following results are available:
+      4. Initialize a :cpp:type:`da_handle` with :cpp:type:`da_handle_type` ``da_handle_linmod``.
+      5. Pass data to the handle using :ref:`da_linmod_define_features_? <da_linmod_define_features>`.
+      6. Customize the model using :ref:`da_options_set_? <da_options_set>` (see :ref:`below <linmod_options>` for a list of the available options).
+      7. Compute the linear model using :ref:`da_linmod_fit_? <da_linmod_fit>`.
+      8. Evaluate the model on new data using :ref:`da_linmod_evaluate_model_? <da_linmod_evaluate_model>`.
+      9. Extract results using :ref:`da_handle_get_result_? <da_handle_get_result>`. The following results are available:
 
          * Coefficients (:cpp:enumerator:`da_linmod_coef`): the optimal coefficients of the fitted model.
 
-         * Some solvers provide extra information. (:cpp:enumerator:`da_linmod_rinfo`), when available, contains the
-           info[100] array with the following values:
+         * Some solvers provide extra information, use :cpp:enumerator:`da_result_::da_rinfo` when querying the handle. The returned array :code:`info[100]` contains the
+           following values:
 
-           * info[0]: loss value at current iterate, :math:`L(\beta_0, \beta)`,
-           * info[1]: norm of the gradient of the loss function,
-           * info[2]: number of iterations made (only for iterative solvers),
-           * info[3]: compute time (wall clock time in seconds),
-           * info[4]: number of model evaluations performed,
-           * info[5]: infinity norm of the optimization metric (varies with the method used),
-           * info[6]: infinity norm of of a given metric at the initial iterate (varies with the method used),
-           * info[7]: number of *cheap* model evaluations (only relevant for Coordinate Descent Method) and indicates the number of low-rank updates used to evaluate model,
-           * info[8-99]: reserved for future use.
+             * info[0]: loss value at current iterate, :math:`L(\beta_0, \beta)`,
+             * info[1]: norm of the gradient of the loss function,
+             * info[2]: number of iterations made (only for iterative solvers),
+             * info[3]: compute time (wall clock time in seconds),
+             * info[4]: number of model evaluations performed,
+             * info[5]: infinity norm of the optimization metric (varies with the method used),
+             * info[6]: infinity norm of of a given metric at the initial iterate (varies with the method used),
+             * info[7]: number of *cheap* model evaluations (only relevant for Coordinate Descent Method) and indicates the number of low-rank updates used to evaluate model,
+             * info[8]: optimality measure (only coordinate descent solver),
+             * info[9]: number of optimality checks (only coordinate descent solver),
+             * info[10]: number of rows in the input matrix,
+             * info[11]: number of columns in the input matrix,
+             * info[12]: number of classes in the input data (0 when regression problem),
+             * info[13]: number of rows of the coefficient array,
+             * info[14]: number of columns of the coefficient array,
+             * info[15]: set to a nonzero value if the problem is well determined,
+             * info[16-99]: reserved for future use.
 
            .. note::
                 When information is not available, -1 is returned.
@@ -426,8 +492,8 @@ Examples
 Further reading
 ===============
 
-An introduction to linear models for Regression and Classification can be found in Chapters 3, 4 of :cite:t:`bishop`, or
-in Chapters 3-5 of :cite:t:`hastie`.
+An introduction to linear models for regression and classification can be found in Chapters 3, 4 of :cite:t:`da_bishop`, or
+in Chapters 3-5 of :cite:t:`da_hastie`.
 
 .. toctree::
     :maxdepth: 1

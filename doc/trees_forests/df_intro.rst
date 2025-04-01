@@ -249,7 +249,7 @@ Examples
 Further reading
 ----------------
 
-An introduction to decision trees and to decision forests can be found in Chapters 9 and 15 of :cite:t:`hastie`.
+An introduction to decision trees and to decision forests can be found in Chapters 9 and 15 of :cite:t:`da_hastie`.
 
 .. toctree::
     :maxdepth: 1

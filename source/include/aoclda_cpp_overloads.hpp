@@ -257,14 +257,14 @@ inline da_status da_correlation_matrix(da_order order, da_int n_rows, da_int n_c
 template <class T> da_status da_linmod_select_model(da_handle handle, linmod_model mod);
 
 inline da_status da_linmod_define_features(da_handle handle, da_int n_samples,
-                                           da_int n_features, const float *X,
+                                           da_int n_features, const float *X, da_int ldx,
                                            const float *y) {
-    return da_linmod_define_features_s(handle, n_samples, n_features, X, y);
+    return da_linmod_define_features_s(handle, n_samples, n_features, X, ldx, y);
 }
 inline da_status da_linmod_define_features(da_handle handle, da_int n_samples,
-                                           da_int n_features, const double *X,
+                                           da_int n_features, const double *X, da_int ldx,
                                            const double *y) {
-    return da_linmod_define_features_d(handle, n_samples, n_features, X, y);
+    return da_linmod_define_features_d(handle, n_samples, n_features, X, ldx, y);
 }
 
 template <class T> da_status da_linmod_fit(da_handle handle);
@@ -272,19 +272,21 @@ template <class T> da_status da_linmod_fit(da_handle handle);
 template <class T>
 da_status da_linmod_fit_start(da_handle handle, da_int ncoef, const T *coefs);
 
-inline da_status da_linmod_evaluate_model(da_handle handle, da_int nsamples, da_int nfeat,
-                                          const double *X, double *predictions,
+inline da_status da_linmod_evaluate_model(da_handle handle, da_int n_samples,
+                                          da_int n_features, const double *X, da_int ldx,
+                                          double *predictions,
                                           double *observations = nullptr,
                                           double *loss = nullptr) {
-    return da_linmod_evaluate_model_d(handle, nsamples, nfeat, X, predictions,
+    return da_linmod_evaluate_model_d(handle, n_samples, n_features, X, ldx, predictions,
                                       observations, loss);
 }
 
-inline da_status da_linmod_evaluate_model(da_handle handle, da_int nsamples, da_int nfeat,
-                                          const float *X, float *predictions,
+inline da_status da_linmod_evaluate_model(da_handle handle, da_int n_samples,
+                                          da_int n_features, const float *X, da_int ldx,
+                                          float *predictions,
                                           float *observations = nullptr,
                                           float *loss = nullptr) {
-    return da_linmod_evaluate_model_s(handle, nsamples, nfeat, X, predictions,
+    return da_linmod_evaluate_model_s(handle, n_samples, n_features, X, ldx, predictions,
                                       observations, loss);
 }
 

@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (C) 2024-2025 Advanced Micro Devices, Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
 # are permitted provided that the following conditions are met:
@@ -46,6 +46,7 @@ class LinearRegression(LinearRegression_sklearn):
                  *,
                  fit_intercept=True,
                  solver='auto',
+                 tol=0.0001,
                  copy_X=True,
                  n_jobs=None,
                  positive=False) -> None:
@@ -59,11 +60,11 @@ class LinearRegression(LinearRegression_sklearn):
 
         # New attributes used internally
         self.aocl = True
-        self.intercept_val = None
         self.solver = solver
+        self.tol = tol
 
-        # Initialize both single and double precision classes for now
-        self.lmod = linmod_da("mse", solver=solver, intercept=fit_intercept)
+        self.lmod = linmod_da("mse", solver=self.solver,
+                              tol=self.tol, intercept=self.fit_intercept)
 
     def fit(self, X, y, sample_weight=None):
         if sample_weight is not None:
@@ -104,8 +105,6 @@ class LinearRegression(LinearRegression_sklearn):
     def coef_(self):
         coef = self.lmod.coef
         if self.fit_intercept:
-            if self.intercept_val is None:
-                self.intercept_val = coef[-1]
             return coef[:-1]
         else:
             return coef
@@ -123,10 +122,8 @@ class LinearRegression(LinearRegression_sklearn):
     @property
     def intercept_(self):
         if self.fit_intercept:
-            if self.intercept_val is None:
-                coef = self.lmod.coef
-                self.intercept_val = coef[-1]
-            return self.intercept_val
+            coef = self.lmod.coef
+            return coef[-1]
         else:
             return 0.0
 
@@ -172,7 +169,6 @@ class Ridge(Ridge_sklearn):
 
         # New attributes used internally
         self.aocl = True
-        self.intercept_val = None
 
         # solver can be in
         # ['auto', 'svd', 'cholesky', 'lsqr', 'sparse_cg', 'sag', 'saga', 'lbfgs']
@@ -184,9 +180,8 @@ class Ridge(Ridge_sklearn):
             raise ValueError(
                 "Constraints on the coefficients are not supported")
 
-        # Initialize both single and double precision classes for now
-        self.lmod = linmod_da("mse", solver=solver, intercept=fit_intercept, reg_lambda=alpha,
-                              reg_alpha=0.0, tol=tol)
+        self.lmod = linmod_da("mse", solver=self.solver, intercept=self.fit_intercept, reg_lambda=self.alpha,
+                              reg_alpha=0.0, tol=self.tol, max_iter=self.max_iter)
 
     def fit(self, X, y, sample_weight=None):
         if sample_weight is not None:
@@ -229,8 +224,6 @@ class Ridge(Ridge_sklearn):
     def coef_(self):
         coef = self.lmod.coef
         if self.fit_intercept:
-            if self.intercept_val is None:
-                self.intercept_val = coef[-1]
             return coef[:-1]
         else:
             return coef
@@ -253,10 +246,8 @@ class Ridge(Ridge_sklearn):
     @property
     def intercept_(self):
         if self.fit_intercept:
-            if self.intercept_val is None:
-                coef = self.lmod.coef
-                self.intercept_val = coef[-1]
-            return self.intercept_val
+            coef = self.lmod.coef
+            return coef[-1]
         else:
             return 0.0
 
@@ -287,12 +278,12 @@ class Lasso(Lasso_sklearn):
         self.fit_intercept = fit_intercept
         self.max_iter = max_iter
         self.tol = tol
+        self.warm_start = warm_start
 
         # Currently ignored attributes
         self.precompute = precompute
         self.copy_X = copy_X
 
-        self.warm_start = warm_start
         self.random_state = random_state
         self.selection = selection
 
@@ -301,10 +292,9 @@ class Lasso(Lasso_sklearn):
 
         # New attributes used internally
         self.aocl = True
-        self.intercept_val = None
 
-        self.lmod = linmod_da("mse", intercept=fit_intercept,
-                              max_iter=self.max_iter, reg_lambda=alpha, reg_alpha=1.0, tol=tol)
+        self.lmod = linmod_da("mse", intercept=self.fit_intercept,
+                              max_iter=self.max_iter, reg_lambda=self.alpha, reg_alpha=1.0, warm_start=self.warm_start, tol=self.tol)
 
     def fit(self, X, y, sample_weight=None, check_input=True):
         if sample_weight is not None:
@@ -349,8 +339,6 @@ class Lasso(Lasso_sklearn):
     def coef_(self):
         coef = self.lmod.coef
         if self.fit_intercept:
-            if self.intercept_val is None:
-                self.intercept_val = coef[-1]
             return coef[:-1]
         else:
             return coef
@@ -373,10 +361,8 @@ class Lasso(Lasso_sklearn):
     @property
     def intercept_(self):
         if self.fit_intercept:
-            if self.intercept_val is None:
-                coef = self.lmod.coef
-                self.intercept_val = coef[-1]
-            return self.intercept_val
+            coef = self.lmod.coef
+            return coef[-1]
         else:
             return 0.0
 
@@ -417,12 +403,12 @@ class ElasticNet(ElasticNet_sklearn):
         self.fit_intercept = fit_intercept
         self.max_iter = max_iter
         self.tol = tol
+        self.warm_start = warm_start
 
         # Currently ignored attributes
         self.precompute = precompute
         self.copy_X = copy_X
 
-        self.warm_start = warm_start
         self.random_state = random_state
         self.selection = selection
 
@@ -431,11 +417,9 @@ class ElasticNet(ElasticNet_sklearn):
 
         # New attributes used internally
         self.aocl = True
-        self.intercept_val = None
 
-        # Initialize both single and double precision classes for now
-        self.lmod = linmod_da("mse", intercept=fit_intercept, max_iter=self.max_iter,
-                                     reg_lambda=alpha, reg_alpha=l1_ratio, tol=tol)
+        self.lmod = linmod_da("mse", intercept=self.fit_intercept, max_iter=self.max_iter,
+                              reg_lambda=self.alpha, reg_alpha=self.l1_ratio, warm_start=self.warm_start, tol=self.tol)
 
     def fit(self, X, y, sample_weight=None, check_input=True):
         if sample_weight is not None:
@@ -481,8 +465,6 @@ class ElasticNet(ElasticNet_sklearn):
     def coef_(self):
         coef = self.lmod.coef
         if self.fit_intercept:
-            if self.intercept_val is None:
-                self.intercept_val = coef[-1]
             return coef[:-1]
         else:
             return coef
@@ -515,10 +497,8 @@ class ElasticNet(ElasticNet_sklearn):
     @property
     def intercept_(self):
         if self.fit_intercept:
-            if self.intercept_val is None:
-                coef = self.lmod.coef
-                self.intercept_val = coef[-1]
-            return self.intercept_val
+            coef = self.lmod.coef
+            return coef[-1]
         else:
             return 0.0
 
@@ -545,7 +525,7 @@ class LogisticRegression(LogisticRegression_sklearn):
         verbose=0,
         warm_start=False,
         n_jobs=None,
-        l1_ratio=0.0,
+        l1_ratio=None,
         progress_factor=None,
         constraint="ssc"
     ):
@@ -554,14 +534,17 @@ class LogisticRegression(LogisticRegression_sklearn):
         self.C = C
         self.fit_intercept = fit_intercept
         self.max_iter = max_iter
+        self.warm_start = warm_start
 
         # Currently ignored attributes
         self.penalty = penalty
         self.dual = dual
         self.solver = solver
         self.verbose = verbose
-        self.warm_start = warm_start
-        self.l1_ratio = l1_ratio
+        if l1_ratio is None:
+            self.l1_ratio = 0.0
+        else:
+            self.l1_ratio = l1_ratio
 
         if self.penalty != 'l2' and self.penalty is not None:
             raise ValueError(
@@ -576,10 +559,6 @@ class LogisticRegression(LogisticRegression_sklearn):
         if self.verbose != 0:
             warnings.warn(
                 "verbose argument is not supported and will be ignored")
-
-        if self.warm_start is not False:
-            warnings.warn(
-                "warm_start argument is not supported and will be ignored")
 
         if self.l1_ratio != 0.0:
             raise ValueError("currently l1_ratio argument is not supported")
@@ -610,7 +589,6 @@ class LogisticRegression(LogisticRegression_sklearn):
 
         # New attributes used internally
         self.aocl = True
-        self.intercept_val = None
         self.progress_factor = progress_factor
         self.constraint = constraint
         if self.penalty == 'l2':
@@ -621,8 +599,8 @@ class LogisticRegression(LogisticRegression_sklearn):
 
         # Initialize aoclda object
         self.lmod = linmod_da("logistic", intercept=self.fit_intercept, max_iter=self.max_iter,
-                              constraint=self.constraint, reg_alpha=l1_ratio,
-                              reg_lambda=self.reg_lambda, progress_factor=progress_factor)
+                              constraint=self.constraint, reg_alpha=self.l1_ratio, reg_lambda=self.reg_lambda,
+                              warm_start=self.warm_start, tol=self.tol, progress_factor=self.progress_factor)
 
     def fit(self, X, y, sample_weight=None, check_input=True):
         if sample_weight is not None:
@@ -673,37 +651,19 @@ class LogisticRegression(LogisticRegression_sklearn):
     @property
     def coef_(self):
         coef = self.lmod.coef
-        # We are returning a ndarray of shape (n_class-1, n_feat)
-        if self.constraint == 'rsc':
-            if self.fit_intercept:
-                if self.intercept_val is None:
-                    self.intercept_val = coef[-(self.n_class-1):]
-                return np.reshape(coef[:-(self.n_class-1)], (self.n_class-1, -1), order="F")
-            return np.reshape(coef, (self.n_class-1, -1), order="F")
-        # We are returning a ndarray of shape (n_class, n_feat)
-        elif self.constraint == 'ssc':
-            if self.fit_intercept:
-                if self.intercept_val is None:
-                    self.intercept_val = coef[-self.n_class:]
-                return np.reshape(coef[:-self.n_class], (self.n_class, -1), order="F")
-            return np.reshape(coef, (self.n_class, -1), order="F")
+        if self.fit_intercept:
+            return coef[:, :-1]
+        else:
+            return coef
 
     @property
     def intercept_(self):
-        if self.constraint == 'rsc':
-            if self.fit_intercept:
-                if self.intercept_val is None:
-                    coef = self.lmod.coef
-                    self.intercept_val = coef[-(self.n_class-1):]
-                return self.intercept_val
-            else:
+        if self.fit_intercept:
+            coef = self.lmod.coef
+            return coef[:, -1]
+        else:
+            if self.constraint == 'rsc':
                 return np.zeros(self.n_class-1)
-        elif self.constraint == 'ssc':
-            if self.fit_intercept:
-                if self.intercept_val is None:
-                    coef = self.lmod.coef
-                    self.intercept_val = coef[-self.n_class:]
-                return self.intercept_val
             else:
                 return np.zeros(self.n_class)
 

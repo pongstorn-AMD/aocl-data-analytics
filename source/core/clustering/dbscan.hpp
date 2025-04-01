@@ -86,7 +86,14 @@ template <typename T> class dbscan : public basic_handle<T> {
     std::vector<da_vector::da_vector<da_int>>
         neighbors; // Use da_vector since we will be dynamically expanding this array
 
+    // Miscellaneous variables
+    da_int min_samples_m1 = 0;
+
     da_status dbscan_clusters();
+
+    da_status dbscan_brute_force_parallel();
+
+    da_status dbscan_brute_force_serial();
 
   public:
     dbscan(da_errors::da_error_t &err);

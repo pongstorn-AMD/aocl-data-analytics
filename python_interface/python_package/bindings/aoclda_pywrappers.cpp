@@ -149,11 +149,12 @@ PYBIND11_MODULE(_aoclda, m) {
     auto m_linmod = m.def_submodule("linear_model", "Linear models.");
     py::class_<linmod, pyda_handle>(m_linmod, "pybind_linmod")
         .def(py::init<std::string, std::optional<da_int>, bool, std::string, std::string,
-                      std::string, std::string &, bool>(),
+                      std::string, bool, std::string &, bool>(),
              py::arg("mod"), py::arg("max_iter") = py::none(),
              py::arg("intercept") = false, py::arg("solver") = "auto",
              py::arg("scaling") = "auto", py::arg("constraint") = "ssc",
-             py::arg("precision") = "double", py::arg("check_data") = false)
+             py::arg("warm_start") = false, py::arg("precision") = "double",
+             py::arg("check_data") = false)
         .def("pybind_fit", &linmod::fit<float>, "Computes the model", "X"_a, "y"_a,
              py::arg("x0") = py::none(), py::arg("progress_factor") = py::none(),
              py::arg("reg_lambda") = (float)0.0, py::arg("reg_alpha") = (float)0.0,
@@ -165,6 +166,7 @@ PYBIND11_MODULE(_aoclda, m) {
         .def("pybind_predict", &linmod::predict<double>, "Evaluate the model on X", "X"_a)
         .def("pybind_predict", &linmod::predict<float>, "Evaluate the model on X", "X"_a)
         .def("get_coef", &linmod::get_coef)
+        .def("get_dual_coef", &linmod::get_dual_coef)
         .def("get_loss", &linmod::get_loss)
         .def("get_norm_gradient_loss", &linmod::get_norm_gradient_loss)
         .def("get_n_iter", &linmod::get_n_iter)

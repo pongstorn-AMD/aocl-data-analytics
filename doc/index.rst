@@ -29,8 +29,8 @@
 
 .. _aocl-da-index:
 
-AOCL-DA Documentation
-*********************
+AOCL-DA
+*******
 
 The AOCL Data Analytics Library (AOCL-DA) is a software library providing optimized building blocks for data analysis.
 It provides users with a complete workflow, including data handling, preprocessing, modeling and validation.
@@ -50,8 +50,8 @@ Your installation is also packaged with C++ and Python example programs.
 The source code for AOCL-DA can be obtained from https://github.com/amd/aocl-data-analytics/.
 You can also install AOCL-DA using the AOCL spack recipe: https://www.amd.com/en/developer/zen-software-studio/applications/spack/spack-aocl.html.
 
-AOCL-DA is developed and maintained by AMD (https://www.amd.com/). For support or queries, you can e-mail us on
-toolchainsupport@amd.com.
+.. AOCL-DA is developed and maintained by AMD (https://www.amd.com/). For support or queries, you can e-mail us on
+   toolchainsupport@amd.com.
 
 Library Reference Documentation
 -------------------------------

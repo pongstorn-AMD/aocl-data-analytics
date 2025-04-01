@@ -80,7 +80,7 @@ The following scikit-learn classes are currently available in the AOCL-DA extens
    * - ``sklearn.decomposition.PCA``
      - ``fit``, ``transform``, ``inverse_transform`` and ``fit_transform`` methods and various class attributes
    * - ``sklearn.linear_model.LinearRegression``
-     - ``fit``, ``predict`` and ``score`` methods (without array slicing)
+     - ``fit``, ``predict`` and ``score`` methods (without array slicing). LBFGSB solver is not available in precompiled Windows wheels.
    * - ``sklearn.linear_model.Ridge``
      - ``fit`` and ``predict`` methods (without array slicing)
    * - ``sklearn.linear_model.Lasso``
@@ -88,7 +88,7 @@ The following scikit-learn classes are currently available in the AOCL-DA extens
    * - ``sklearn.linear_model.ElasticNet``
      - ``fit`` and ``predict`` methods (without array slicing)
    * - ``sklearn.linear_model.LogisticRegression``
-     - ``fit`` and ``predict`` methods (without array slicing)
+     - ``fit`` and ``predict`` methods (without array slicing). Not available in precompiled Windows wheels.
    * - ``sklearn.metrics.pairwise``
      - * ``pairwise_distances`` method with ``cityblock``, ``cosine``, ``euclidean``, ``sqeuclidean``, ``l1``, ``l2``, ``manhattan`` and ``minkowski`` distances
        * ``ensure_all_finite`` option is not supported

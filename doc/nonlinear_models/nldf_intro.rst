@@ -1,5 +1,5 @@
 ..
-    Copyright (C) 2024 Advanced Micro Devices, Inc. All rights reserved.
+    Copyright (C) 2024-2025 Advanced Micro Devices, Inc. All rights reserved.
 
     Redistribution and use in source and binary forms, with or without modification,
     are permitted provided that the following conditions are met:
@@ -58,6 +58,12 @@ thus reducing the problem to
 Given the nonlinear nature of the residual function, :math:`r(x)`, there is no closed formula
 as is the case for linear models. Here, the approach is to use an iterative optimization method that improves on an
 initial guess at every iteration.
+
+  .. note::
+
+   Our prebuilt Windows Python wheels (https://www.amd.com/en/developer/aocl.html) do not include the nonlinear least squares solver.
+   To access it, building from source is required. Source code and compilation instructions are available at https://github.com/amd/aocl-data-analytics/.
+   If you encounter issues, please e-mail us on toolchainsupport@amd.com.
 
 Defining a nonlinear model
 --------------------------
@@ -211,7 +217,7 @@ The standard way of computing a nonlinear model using AOCL-DA is as follows.
       4. Train the nonlinear model using :ref:`da_nlls_fit_? <da_nlls_fit>` (you will have to provide an initial guess).
       5. Optimized coefficients :math:`x` are returned on the interface.
       6. Extract results using :ref:`da_handle_get_result_? <da_handle_get_result>`
-         using :cpp:enum:`da_result::da_rinfo`.
+         using :cpp:enumerator:`da_result_::da_rinfo`.
 
          * The following results are available in the :code:`info[100]` array:
 
@@ -219,15 +225,14 @@ The standard way of computing a nonlinear model using AOCL-DA is as follows.
             * info[1]: norm of objective gradient,
             * info[2]: number of iterations,
             * info[3]: reserved for future use,
-            * info[4]: number of function callback evaluations (includes ``info[12]``),
-            * info[5-7]: reserved for future use,
-            * info[8]: number of gradient callback evaluations,
-            * info[9]: number of Hessian callback evaluations,
-            * info[10]: number of Hessian-vector callback evaluations,
-            * info[11]: scaled gradient norm of objective,
-            * info[12]: number of objective function callback evaluations used
+            * info[4]: number of function callback evaluations (includes ``info[9]``),
+            * info[5]: number of gradient callback evaluations,
+            * info[6]: number of Hessian callback evaluations,
+            * info[7]: number of Hessian-vector callback evaluations,
+            * info[8]: scaled gradient norm of objective,
+            * info[9]: number of objective function callback evaluations used
               for approximating the derivatives or due to derivative checker,
-            * info[13-99]: reserved for future use.
+            * info[10-99]: reserved for future use.
 
 .. _nlls_options:
 
@@ -317,13 +322,13 @@ Further reading
 ===============
 
 An introduction to nonlinear least-squares methods can be found in
-:cite:t:`NocWri06NumOpt`.
+:cite:t:`da_NocWri06NumOpt`.
 In-depth literature on modern trust-region solvers can be reviewed in:
-:cite:t:`ralfit`,
-:cite:t:`kanzow`,
-:cite:t:`adachi`,
-:cite:t:`ConGouToi00TR`, and
-:cite:t:`galahad`.
+:cite:t:`da_ralfit`,
+:cite:t:`da_kanzow`,
+:cite:t:`da_adachi`,
+:cite:t:`da_ConGouToi00TR`, and
+:cite:t:`da_galahad`.
 
 .. toctree::
     :maxdepth: 1

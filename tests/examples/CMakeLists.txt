@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (C) 2023-2025 Advanced Micro Devices, Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met: 1.
@@ -24,17 +24,21 @@
 
 include_directories(${CMAKE_SOURCE_DIR}/source/include)
 
-add_executable(nlls nlls.cpp)
+if(BUILD_FORTRAN)
 
-add_executable(nlls_single nlls_single.cpp)
+  add_executable(nlls nlls.cpp)
 
-add_executable(nlls_lanczos_fd nlls_lanczos_fd.cpp)
+  add_executable(nlls_single nlls_single.cpp)
+
+  add_executable(nlls_lanczos_fd nlls_lanczos_fd.cpp)
+
+  add_executable(reglinear_model reglinear_model.cpp)
+
+endif()
 
 add_executable(basic_statistics basic_statistics.cpp)
 
 add_executable(linear_model linear_model.cpp)
-
-add_executable(reglinear_model reglinear_model.cpp)
 
 add_executable(linmod_diabetes linmod_diabetes.cpp)
 target_compile_definitions(linmod_diabetes
@@ -78,10 +82,6 @@ add_executable(svc svc.cpp)
 add_executable(nusvr nusvr.cpp)
 
 set(EXAMPLE_EXES
-    nlls
-    nlls_single
-    nlls_lanczos_fd
-    reglinear_model
     linear_model
     linmod_diabetes
     basic_statistics
@@ -97,6 +97,10 @@ set(EXAMPLE_EXES
     svc
     nusvr
     kernel_functions)
+
+if(BUILD_FORTRAN)
+  list(APPEND EXAMPLE_EXES nlls nlls_single nlls_lanczos_fd reglinear_model)
+endif()
 
 foreach(target ${EXAMPLE_EXES})
   target_link_libraries(${target} PRIVATE aocl-da)

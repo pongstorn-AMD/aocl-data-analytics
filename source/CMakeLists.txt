@@ -87,7 +87,8 @@ set(DA_HANDLE_PUBLIC core/utilities/da_handle.cpp
                      core/utilities/da_handle_public.cpp)
 set(DA_CSV_PUBLIC core/csv/tokenizer.c core/csv/read_csv_public.cpp)
 set(DA_SVM_PUBLIC core/svm/svm_public.cpp)
-set(DA_KERNEL_FUNCTIONS_PUBLIC core/kernel_functions/kernel_functions_public.cpp)
+set(DA_KERNEL_FUNCTIONS_PUBLIC
+    core/kernel_functions/kernel_functions_public.cpp)
 
 # Internal APIs require multi-compilation for different zen architectures
 set(DA_BASIC_STATISTICS_INTERNAL
@@ -113,11 +114,10 @@ set(DA_LINMOD_INTERNAL
     core/linear_model/linmod_svd.cpp core/linear_model/linmod_nln_optim.cpp)
 set(DA_BASIC_HANDLE_INTERNAL core/utilities/basic_handle.cpp)
 set(DA_KERNEL_FUNCTIONS_INTERNAL core/kernel_functions/kernel_functions.cpp)
-set(DA_METRICS_INTERNAL core/metrics/pairwise_distances.cpp
-                        core/metrics/euclidean_distance.cpp
-                        core/metrics/cosine_distance.cpp
-                        core/metrics/manhattan_distance.cpp
-                        core/metrics/minkowski_distance.cpp)
+set(DA_METRICS_INTERNAL
+    core/metrics/pairwise_distances.cpp core/metrics/euclidean_distance.cpp
+    core/metrics/cosine_distance.cpp core/metrics/manhattan_distance.cpp
+    core/metrics/minkowski_distance.cpp)
 
 set(DA_CORE_PUBLIC
     ${DA_LINMOD_PUBLIC}
@@ -164,10 +164,11 @@ endif()
 
 # Extend version string with built architecture(s)
 string(REPLACE ";" " " ARCHITECTURES_LABELS "${ARCHITECTURES}")
-string(REGEX REPLACE "(-DAOCLDA_VERSION_STRING=\".*)(\")"
-                "\\1 ${CMAKE_BUILD_TYPE} [${ARCHITECTURES_LABELS}]\\2"
-                AOCLDA_DEFS "${AOCLDA_DEFS}")
-
+string(
+  REGEX
+  REPLACE "(-DAOCLDA_VERSION_STRING=\".*)(\")"
+          "\\1 ${CMAKE_BUILD_TYPE} [${ARCHITECTURES_LABELS}]\\2" AOCLDA_DEFS
+          "${AOCLDA_DEFS}")
 
 add_library(da_core_public OBJECT ${DA_CORE_PUBLIC})
 aoclda_add_dependencies(da_core_public)
@@ -177,8 +178,12 @@ add_library(da_core OBJECT $<TARGET_OBJECTS:da_core_public>)
 
 # Create combined library from da_core and Fortran libraries
 add_library(
-  aocl-da $<TARGET_OBJECTS:da_core> $<TARGET_OBJECTS:da_core_public>
-          $<TARGET_OBJECTS:lbfgsb> $<TARGET_OBJECTS:lbfgsb_s> ${nlls_obj_list})
+  aocl-da
+  $<TARGET_OBJECTS:da_core>
+  $<TARGET_OBJECTS:da_core_public>
+  $<$<BOOL:${BUILD_FORTRAN}>:$<TARGET_OBJECTS:lbfgsb>>
+  $<$<BOOL:${BUILD_FORTRAN}>:$<TARGET_OBJECTS:lbfgsb_s>>
+  $<$<BOOL:${BUILD_FORTRAN}>:${nlls_obj_list}>)
 
 # Set -mavx2 so generic code will still perform acceptably
 set(GENERIC_FLAGS "-march=x86-64;-mavx2")
@@ -190,10 +195,24 @@ if(ARCH STREQUAL "dynamic")
   target_compile_options(da_core_public PRIVATE ${GENERIC_FLAGS})
   target_compile_definitions(da_core_public PRIVATE ${DEFINITIONS})
 elseif(ARCH STREQUAL "native")
-  # For native builds reuse the generic compile definitions to give access to
-  # the generic namespaces internally
-  target_compile_definitions(da_core_public
-                             PRIVATE generic_AVAILABLE;ZNVER_MAX=generic)
+  # For native builds we need to extract the architecture corresponding to the
+  # -march=native flag in order to use the correct namespace in the source code
+  extract_native_namespace(NATIVE_NAMESPACE)
+  set(NATIVE_NAMESPACE
+      ${NATIVE_NAMESPACE}
+      PARENT_SCOPE)
+  if(NATIVE_NAMESPACE STREQUAL "generic")
+    target_compile_definitions(da_core_public
+                               PRIVATE generic_AVAILABLE;ZNVER_MAX=generic)
+  else()
+    message(
+      NOTICE
+      "Building using znver${NATIVE_NAMESPACE} namespace.")
+    target_compile_definitions(
+      da_core_public
+      PRIVATE
+        znver${NATIVE_NAMESPACE}_AVAILABLE;ZNVER_MAX=zen${NATIVE_NAMESPACE})
+  endif()
 else()
   # For a specific target build, use the target architecture and set the
   # appropriate compile options
@@ -214,10 +233,13 @@ foreach(ARCHITECTURE IN LISTS ARCHITECTURES)
   add_library(${ARCH_OBJECTS} OBJECT ${DA_CORE_DYNAMIC_DISPATCH})
 
   # Set the compile definitions for the architecture
-  if(ARCHITECTURE STREQUAL "native" OR ARCHITECTURE STREQUAL "generic")
-    # For a native build we will reuse the generic namespaces internally but
-    # compile with -march=native
+  if(ARCHITECTURE STREQUAL "generic"
+     OR (ARCHITECTURE STREQUAL "native" AND NATIVE_NAMESPACE STREQUAL "generic"
+        ))
     target_compile_definitions(${ARCH_OBJECTS} PRIVATE ARCH_generic)
+  elseif(ARCHITECTURE STREQUAL "native")
+    target_compile_definitions(${ARCH_OBJECTS}
+                               PRIVATE ARCH_znver=${NATIVE_NAMESPACE})
   else()
     extract_znver_generation(${ARCHITECTURE} znver)
     target_compile_definitions(${ARCH_OBJECTS} PRIVATE ARCH_znver=${znver})
@@ -249,10 +271,11 @@ set(USE_VEC_MATH ${DA_KERNEL_FUNCTIONS_INTERNAL})
 # Check if AOCC compiler is used on Linux
 set(IS_AOCC_LINUX -1)
 if(UNIX AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-  execute_process(COMMAND ${CMAKE_C_COMPILER} --version OUTPUT_VARIABLE clang_full_version_string)
-  # Check if we are using AOCC
-  # If AOCC is part of the clang version string then IS_AOCC_LINUX returns the position of the "AOCC" string
-  # If it is not found then IS_AOCC_LINUX returns -1
+  execute_process(COMMAND ${CMAKE_C_COMPILER} --version
+                  OUTPUT_VARIABLE clang_full_version_string)
+  # Check if we are using AOCC If AOCC is part of the clang version string then
+  # IS_AOCC_LINUX returns the position of the "AOCC" string If it is not found
+  # then IS_AOCC_LINUX returns -1
   string(FIND ${clang_full_version_string} "AOCC" IS_AOCC_LINUX)
 endif()
 
@@ -266,7 +289,8 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release" AND CMAKE_CXX_COMPILER_ID STREQUAL
     endif()
     # Add flag to enable vectorised math given that amdlibm has been linked
     if(IS_AOCC_LINUX GREATER -1 AND SOURCE IN_LIST USE_VEC_MATH)
-        set_source_files_properties(${SOURCE} PROPERTIES COMPILE_FLAGS "-fveclib=AMDLIBM")
+      set_source_files_properties(${SOURCE} PROPERTIES COMPILE_FLAGS
+                                                       "-fveclib=AMDLIBM")
     endif()
   endforeach()
 endif()

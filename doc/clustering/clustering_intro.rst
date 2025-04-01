@@ -124,7 +124,7 @@ Options
 Note that if the initialization method is set to ``random`` then the initial cluster centres are chosen randomly from the sample points.
 If it is set to ``random partitions`` then the sample points are assigned to a random cluster and the corresponding cluster centres are computed and used as the starting point.
 
-The standard algorithm for solving *k*-means problems is Lloyd's algorithm. Elkan's algorithm can be faster on naturally clustered datasets but uses considerably more memory. For more information on the available algorithms see :cite:t:`elkan`, :cite:t:`hartigan1979algorithm`, :cite:t:`lloyd1982least` and :cite:t:`macqueen1967some`.
+The standard algorithm for solving *k*-means problems is Lloyd's algorithm. Elkan's algorithm can be faster on naturally clustered datasets but uses considerably more memory. For more information on the available algorithms see :cite:t:`da_elkan`, :cite:t:`da_hartigan1979algorithm`, :cite:t:`da_lloyd1982least` and :cite:t:`da_macqueen1967some`.
 
 
 .. _dbscan_intro:
@@ -206,7 +206,7 @@ Options
 
          "power", "real", ":math:`r=2.0`", "The power of the Minkowski metric used (reserved for future use).", ":math:`0 \le r`"
          "metric", "string", ":math:`s=` `euclidean`", "Choice of metric used to compute pairwise distances (reserved for future use).", ":math:`s=` `euclidean`, `manhattan`, `minkowski`, or `sqeuclidean`."
-         "algorithm", "string", ":math:`s=` `brute`", "Choice of algorithm (reserved for future use).", ":math:`s=` `auto`, `ball tree`, `brute`, `brute serial`, or `kd tree`."
+         "algorithm", "string", ":math:`s=` `brute`", "Choice of algorithm (reserved for future use).", ":math:`s=` `auto`, `ball tree`, `brute`, `brute parallel`, or `kd tree`."
          "leaf size", "integer", ":math:`i=30`", "Leaf size for KD tree or ball tree (reserved for future use).", ":math:`1 \le i`"
          "eps", "real", ":math:`r=10^{-4}`", "Maximum distance for two samples to be considered in each other's neighborhood.", ":math:`0 \le r`"
          "min samples", "integer", ":math:`i=5`", "Minimum number of neighborhood samples for a core point.", ":math:`1 \le i`"

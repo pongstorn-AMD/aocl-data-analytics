@@ -1,4 +1,4 @@
-# Copyright (C) 2023-2024 Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (C) 2023-2025 Advanced Micro Devices, Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
 # are permitted provided that the following conditions are met:
@@ -26,7 +26,7 @@
 
 find_program(LCOV lcov REQUIRED)
 find_program(GENHTML genhtml REQUIRED)
-find_program(GCOV_PATH NAMES $ENV{GCOV_NAME} gcov HINTS "/usr" PATH_SUFFIXES "bin" DOC "GNU gcov binary" REQUIRED)
+find_program(GCOV_PATH NAMES $ENV{GCOV_NAME} gcov HINTS "$ENV{PATH}" PATH_SUFFIXES "bin" DOC "GNU gcov binary" REQUIRED)
 message(STATUS "GNU gcov binary: ${GCOV_PATH}")
 
 set(COMPILER_FLAGS_DEBUG

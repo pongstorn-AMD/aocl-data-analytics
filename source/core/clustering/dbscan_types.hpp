@@ -29,7 +29,14 @@
 
 namespace da_dbscan_types {
 
-enum dbscan_algorithm { brute = 0, brute_serial, ball_tree, kd_tree, automatic };
+enum dbscan_algorithm {
+    brute = 0,
+    brute_serial,
+    brute_parallel,
+    ball_tree,
+    kd_tree,
+    automatic
+};
 enum dbscan_metric { euclidean, sqeuclidean, minkowski, manhattan };
 
 } // namespace da_dbscan_types

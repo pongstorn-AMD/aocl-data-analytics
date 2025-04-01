@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (C) 2024-2025 Advanced Micro Devices, Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
 # are permitted provided that the following conditions are met:
@@ -105,7 +105,7 @@ class nlls():
               - ``'galahad'`` GALAHAD's DRQS.
               - ``'linear solver'`` solve step system using a linear solver,
 
-            Refer to :cite:p:`ralfit` for details on these subproblem solvers.
+            Refer to :cite:p:`da_ralfit` for details on these subproblem solvers.
 
         reg_power (str, optional): Regularization power (p).  Default = ``'quadratic'``.
             This option is only relevant if the `regularization term` (parameter ``reg_term`` in
