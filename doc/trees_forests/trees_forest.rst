@@ -251,8 +251,140 @@ Further reading
 
 An introduction to decision trees and to decision forests can be found in Chapters 9 and 15 of :cite:t:`da_hastie`.
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
 
-    decision_tree_api
+
+Decision tree and decision forest APIs
+-----------------------------------------
+
+This chapter contains two sets of APIs, one for classification using a single :ref:`decision tree <da_decision_trees_apis>` and another
+one for the ensemble method :ref:`decision forests<da_decision_forests_apis>` (also known as random forests).
+
+.. _da_decision_trees_apis:
+
+Decision trees
+^^^^^^^^^^^^^^^^^
+
+.. tab-set::
+
+   .. tab-item:: Python
+      :sync: Python
+
+      .. autoclass:: aoclda.decision_tree.decision_tree(criterion='gini', seed=-1, max_depth=10, max_features=0, min_samples_split=2, build_order='breadth first', min_impurity_decrease=0.0, min_split_score=0.0, feat_thresh=1.0e-06, check_data=false)
+         :members:
+
+   .. tab-item:: C
+      :sync: C
+
+      .. _da_tree_set_training_data:
+
+      .. doxygenfunction:: da_tree_set_training_data_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_tree_set_training_data_d
+         :project: da
+
+      .. _da_tree_fit:
+
+      .. doxygenfunction:: da_tree_fit_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_tree_fit_d
+         :project: da
+
+      .. _da_tree_predict:
+
+      .. doxygenfunction:: da_tree_predict_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_tree_predict_d
+         :project: da
+
+      .. _da_tree_predict_proba:
+
+      .. doxygenfunction:: da_tree_predict_proba_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_tree_predict_proba_d
+         :project: da
+
+      .. _da_tree_predict_log_proba:
+
+      .. doxygenfunction:: da_tree_predict_log_proba_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_tree_predict_log_proba_d
+         :project: da
+
+      .. _da_tree_score:
+
+      .. doxygenfunction:: da_tree_score_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_tree_score_d
+         :project: da
+
+
+.. _da_decision_forests_apis:
+
+Decision forests
+^^^^^^^^^^^^^^^^^^
+
+.. tab-set::
+
+   .. tab-item:: Python
+      :sync: Python
+
+      .. autoclass:: aoclda.decision_forest.decision_forest(criterion='gini', bootstrap=True, n_trees=100, features_selection='sqrt', max_features=0, seed=-1, max_depth=10, min_samples_split=2, build_order='breadth first', samples_factor=0.8, min_impurity_decrease=0.0, min_split_score=0.0, feat_thresh=1.0e-06, check_data=false)
+         :members:
+
+   .. tab-item:: C
+      :sync: C
+
+      .. _da_forest_set_training_data:
+
+      .. doxygenfunction:: da_forest_set_training_data_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_forest_set_training_data_d
+         :project: da
+
+      .. _da_forest_fit:
+
+      .. doxygenfunction:: da_forest_fit_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_forest_fit_d
+         :project: da
+
+      .. _da_forest_predict:
+
+      .. doxygenfunction:: da_forest_predict_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_forest_predict_d
+         :project: da
+
+      .. _da_forest_predict_proba:
+
+      .. doxygenfunction:: da_forest_predict_proba_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_forest_predict_proba_d
+         :project: da
+
+      .. _da_forest_predict_log_proba:
+
+      .. doxygenfunction:: da_forest_predict_log_proba_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_forest_predict_log_proba_d
+         :project: da
+
+      .. _da_forest_score:
+
+      .. doxygenfunction:: da_forest_score_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_forest_score_d
+         :project: da
+

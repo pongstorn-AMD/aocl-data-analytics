@@ -27,8 +27,9 @@
 
 .. _chapter_python_intro:
 
-Introduction
-*******************
+
+Introduction to the Python APIs
+********************************
 
 This section contains general instructions for calling AOCL-DA using the Python APIs.
 

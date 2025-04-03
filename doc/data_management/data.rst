@@ -193,10 +193,245 @@ The source files ``datastore.cpp`` and ``linmod_diabetes.cpp`` showcase loading,
 ..
     Link to the APIs
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
+.. _csv_api:
 
-    csv_api
-    datastores_api
-    utility_api
+CSV Reading APIs
+===================
+
+.. _da_read_csv:
+
+da_read_csv\_?()
+-----------------------
+
+.. doxygenfunction:: da_read_csv_d
+   :project: da
+   :outline:
+.. doxygenfunction:: da_read_csv_s
+   :project: da
+   :outline:
+.. doxygenfunction:: da_read_csv_int
+   :project: da
+
+.. doxygenfunction:: da_read_csv_uint8
+   :project: da
+
+.. doxygenfunction:: da_read_csv_string
+   :project: da
+
+For reading data directly into a :cpp:type:`da_datastore` struct, see :cpp:func:`da_data_load_from_csv`.
+
+
+Datastore APIs
+===================
+
+.. _datastore_api:
+
+Datastores
+----------
+
+.. doxygentypedef:: da_datastore
+   :project: da
+
+.. _api_init:
+
+Initialize and destroy datastores
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. doxygenfunction:: da_datastore_init
+   :project: da
+.. doxygenfunction:: da_datastore_destroy
+   :project: da
+
+
+.. _api_load_data:
+
+Load data into a datastore
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. doxygenfunction:: da_data_load_from_csv
+   :project: da
+.. doxygenfunction:: da_data_hconcat
+   :project: da
+
+
+.. _da_data_load_row:
+
+.. doxygenfunction:: da_data_load_row_int
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_load_row_str
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_load_row_real_s
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_load_row_real_d
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_load_row_uint8
+   :project: da
+
+.. _da_data_load_col:
+
+.. doxygenfunction:: da_data_load_col_int
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_load_col_str
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_load_col_real_d
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_load_col_real_s
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_load_col_uint8
+   :project: da
+
+
+.. _api_data_selection:
+
+Data selection
+^^^^^^^^^^^^^^
+
+.. doxygenfunction:: da_data_select_columns
+   :project: da
+.. doxygenfunction:: da_data_select_rows
+   :project: da
+.. doxygenfunction:: da_data_select_slice
+   :project: da
+.. doxygenfunction:: da_data_select_non_missing
+   :project: da
+.. doxygenfunction:: da_data_select_remove_columns
+   :project: da
+.. doxygenfunction:: da_data_select_remove_rows
+   :project: da
+
+.. _api_data_extraction:
+
+Data extraction
+^^^^^^^^^^^^^^^
+
+.. _da_data_extract_selection:
+
+.. doxygenfunction:: da_data_extract_selection_int
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_extract_selection_real_s
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_extract_selection_real_d
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_extract_selection_uint8
+   :project: da
+
+.. _da_data_extract_column:
+
+.. doxygenfunction:: da_data_extract_column_int
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_extract_column_real_s
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_extract_column_real_d
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_extract_column_uint8
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_extract_column_str
+   :project: da
+
+.. _api_column_header:
+
+Column headers
+^^^^^^^^^^^^^^
+
+.. doxygenfunction:: da_data_label_column
+   :project: da
+.. doxygenfunction:: da_data_get_col_idx
+   :project: da
+.. doxygenfunction:: da_data_get_col_label
+   :project: da
+
+
+.. _api_data_edition:
+
+Data editing
+^^^^^^^^^^^^
+
+.. doxygenfunction:: da_data_get_n_rows
+   :project: da
+.. doxygenfunction:: da_data_get_n_cols
+   :project: da
+
+.. _da_data_get_element:
+
+.. doxygenfunction:: da_data_get_element_int
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_get_element_real_d
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_get_element_real_s
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_get_element_uint8
+   :project: da
+
+.. _da_data_set_element:
+
+.. doxygenfunction:: da_data_set_element_int
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_set_element_real_d
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_set_element_real_s
+   :project: da
+   :outline:
+.. doxygenfunction:: da_data_set_element_uint8
+   :project: da
+
+.. _api_data_miscellaneous:
+
+Miscellaneous
+^^^^^^^^^^^^^
+
+The :cpp:type:`da_datastore` functionality also includes
+:ref:`option setting <api_datastore_options>` and
+:ref:`error handling <datastore_error_api>` capabilities.
+
+.. doxygentypedef:: da_order
+   :project: da
+.. doxygenenum:: da_order_
+   :project: da
+
+
+.. _utility_api:
+
+Utility APIs
+=================
+
+The following functions are provided for your convenience.
+
+.. doxygenfunction:: da_delete_string_array
+   :project: da
+
+.. doxygenfunction:: da_check_data_s
+   :project: da
+   :outline:
+.. doxygenfunction:: da_check_data_d
+   :project: da
+
+.. doxygenfunction:: da_switch_order_copy_s
+   :project: da
+   :outline:
+.. doxygenfunction:: da_switch_order_copy_d
+   :project: da
+
+.. doxygenfunction:: da_switch_order_in_place_s
+   :project: da
+   :outline:
+.. doxygenfunction:: da_switch_order_in_place_d
+   :project: da

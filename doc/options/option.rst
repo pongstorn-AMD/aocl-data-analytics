@@ -1,5 +1,5 @@
 ..
-    Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
+    Copyright (C) 2023-2025 Advanced Micro Devices, Inc. All rights reserved.
 
     Redistribution and use in source and binary forms, with or without modification,
     are permitted provided that the following conditions are met:
@@ -40,9 +40,74 @@ This should be done after the :cpp:type:`da_handle` or :cpp:type:`da_datastore` 
 The available options depend on the particular computation being performed, and are detailed in the specific APIs you are using, but all options have a string name and are set or queried using the functions described in :ref:`Option APIs for da_datastore <api_datastore_options>` and :ref:`Option APIs for da_handle <api_handle_options>`.
 The APIs are all very similar and differ only in the type of the final parameter (which contains the value of the option itself), which may be a string, integer, double or float.
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
 
-    option_datastore_api
-    option_handle_api
+
+.. _api_datastore_options:
+
+Option APIs for ``da_datastore``
+=====================================
+
+.. _da_datastore_options_set:
+
+.. doxygenfunction:: da_datastore_options_set_int
+   :project: da
+   :outline:
+.. doxygenfunction:: da_datastore_options_set_string
+   :project: da
+   :outline:
+.. doxygenfunction:: da_datastore_options_set_real_s
+   :project: da
+   :outline:
+.. doxygenfunction:: da_datastore_options_set_real_d
+   :project: da
+
+.. _da_datastore_options_get:
+
+.. doxygenfunction:: da_datastore_options_get_int
+   :project: da
+   :outline:
+.. doxygenfunction:: da_datastore_options_get_string
+   :project: da
+   :outline:
+.. doxygenfunction:: da_datastore_options_get_real_s
+   :project: da
+   :outline:
+.. doxygenfunction:: da_datastore_options_get_real_d
+   :project: da
+
+
+
+.. _api_handle_options:
+
+Option APIs for ``da_handle``
+=================================
+
+.. _da_options_set:
+
+.. doxygenfunction:: da_options_set_int
+   :project: da
+   :outline:
+.. doxygenfunction:: da_options_set_string
+   :project: da
+   :outline:
+.. doxygenfunction:: da_options_set_real_s
+   :project: da
+   :outline:
+.. doxygenfunction:: da_options_set_real_d
+   :project: da
+
+.. _da_options_get:
+
+.. doxygenfunction:: da_options_get_int
+   :project: da
+   :outline:
+.. doxygenfunction:: da_options_get_string
+   :project: da
+   :outline:
+.. doxygenfunction:: da_options_get_real_s
+   :project: da
+   :outline:
+.. doxygenfunction:: da_options_get_real_d
+   :project: da
+
+

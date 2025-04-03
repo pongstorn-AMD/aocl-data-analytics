@@ -66,7 +66,7 @@ initial guess at every iteration.
    If you encounter issues, please e-mail us on toolchainsupport@amd.com.
 
 Defining a nonlinear model
---------------------------
+============================
 
 A model is defined inside a :ref:`handle<intro_handle>`, in which all the components of the model are configured.
 In particular, any model is defined via the residual function, :math:`r(x) = \theta(t, x) - y`, where
@@ -330,8 +330,87 @@ In-depth literature on modern trust-region solvers can be reviewed in:
 :cite:t:`da_ConGouToi00TR`, and
 :cite:t:`da_galahad`.
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
 
-    nldf_api
+
+
+Nonlinear Data Fitting APIs
+=============================
+
+
+.. tab-set::
+
+   .. tab-item:: Python
+
+      .. autoclass:: aoclda.nonlinear_model.nlls(n_coef, n_res, weights=None, lower_bounds=None, upper_bounds=None, order='c', model='hybrid', method='galahad', glob_strategy='tr', reg_power='quadratic', verbose=0, check_data=false)
+         :members:
+
+   .. tab-item:: C
+
+      .. _da_nlls_callbacks:
+
+      .. doxygentypedef:: da_resfun_t_s
+         :project: da
+         :outline:
+      .. doxygentypedef:: da_resfun_t_d
+         :project: da
+
+      .. _da_nlls_callbacks_j:
+
+      .. doxygentypedef:: da_resgrd_t_s
+         :project: da
+         :outline:
+      .. doxygentypedef:: da_resgrd_t_d
+         :project: da
+
+      .. _da_nlls_callbacks_hf:
+
+      .. doxygentypedef:: da_reshes_t_s
+         :project: da
+         :outline:
+      .. doxygentypedef:: da_reshes_t_d
+         :project: da
+
+      .. _da_nlls_callbacks_hp:
+
+      .. doxygentypedef:: da_reshp_t_s
+         :project: da
+         :outline:
+      .. doxygentypedef:: da_reshp_t_d
+         :project: da
+
+      .. _da_nlls_define_residuals:
+
+      .. doxygenfunction:: da_nlls_define_residuals_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_nlls_define_residuals_d
+         :project: da
+
+      .. _da_nlls_define_weights:
+
+      .. doxygenfunction:: da_nlls_define_weights_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_nlls_define_weights_d
+         :project: da
+
+      .. _da_nlls_define_bounds:
+
+      .. doxygenfunction:: da_nlls_define_bounds_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_nlls_define_bounds_d
+         :project: da
+
+      .. _da_nlls_fit:
+
+      .. doxygenfunction:: da_nlls_fit_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_nlls_fit_d
+         :project: da
+
+      .. _da_optim_info_t:
+
+      .. doxygenenum:: da_optim_info_t_
+         :project: da

@@ -495,8 +495,65 @@ Further reading
 An introduction to linear models for regression and classification can be found in Chapters 3, 4 of :cite:t:`da_bishop`, or
 in Chapters 3-5 of :cite:t:`da_hastie`.
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
 
-    linmod_api
+Linear Model APIs
+==================
+
+.. tab-set::
+
+   .. tab-item:: Python
+
+      .. autoclass:: aoclda.linear_model.linmod(mod, intercept=False, solver='auto', scaling='auto', max_iter=None, constraint='ssc', reg_lambda=0.0, reg_alpha=0.0, warm_start=False, tol=1.0e-4, progress_factor=None, check_data=False)
+         :members:
+
+   .. tab-item:: C
+
+      .. _da_linmod_select_model:
+
+      .. doxygenfunction:: da_linmod_select_model_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_linmod_select_model_d
+         :project: da
+
+      .. _da_linmod_define_features:
+
+      .. doxygenfunction:: da_linmod_define_features_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_linmod_define_features_d
+         :project: da
+
+      .. _da_linmod_fit:
+
+      .. doxygenfunction:: da_linmod_fit_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_linmod_fit_d
+         :project: da
+
+      .. _da_linmod_fit_start:
+
+      .. doxygenfunction:: da_linmod_fit_start_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_linmod_fit_start_d
+         :project: da
+
+      .. _da_linmod_evaluate_model:
+
+      .. doxygenfunction:: da_linmod_evaluate_model_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_linmod_evaluate_model_d
+         :project: da
+
+      .. doxygentypedef:: linmod_model
+         :project: da
+      .. doxygenenum:: linmod_model_
+         :project: da
+
+      .. _da_linmod_info_t:
+
+      .. doxygenenum:: da_linmod_info_t_
+         :project: da

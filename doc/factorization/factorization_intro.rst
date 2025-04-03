@@ -169,8 +169,49 @@ Examples
               :language: C++
               :linenos:
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
 
-    factorization_api
+Factorization APIs
+=========================
+
+Principal component analysis and the SVD
+-----------------------------------------
+.. tab-set::
+
+   .. tab-item:: Python
+
+      .. autoclass:: aoclda.factorization.PCA(n_components=1, bias='unbiased', method='covariance', solver='auto', store_U=False, check_data=false)
+         :members:
+
+   .. tab-item:: C
+
+      .. _da_pca_set_data:
+
+      .. doxygenfunction:: da_pca_set_data_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_pca_set_data_d
+         :project: da
+
+      .. _da_pca_compute:
+
+      .. doxygenfunction:: da_pca_compute_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_pca_compute_d
+         :project: da
+
+      .. _da_pca_transform:
+
+      .. doxygenfunction:: da_pca_transform_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_pca_transform_d
+         :project: da
+
+      .. _da_pca_inverse_transform:
+
+      .. doxygenfunction:: da_pca_inverse_transform_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_pca_inverse_transform_d
+         :project: da

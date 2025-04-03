@@ -228,8 +228,84 @@ Examples
               :language: C++
               :linenos:
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
 
-    svm_api
+
+Support Vector Machine APIs
+================================
+
+.. tab-set::
+
+   .. tab-item:: Python
+
+      .. autoclass:: aoclda.svm.SVC(C=1.0, kernel="rbf", degree=3, gamma=-1.0, coef0=0.0, probability=False, tol=0.001, max_iter=-1, tau=1.0e-12, check_data=False)
+         :members:
+         :inherited-members:
+      .. autoclass:: aoclda.svm.SVR(C=1.0, epsilon=0.1, kernel="rbf", degree=3, gamma=-1.0, coef0=0.0, tol=0.001, max_iter=-1, tau=1.0e-12, check_data=False)
+         :members:
+         :inherited-members:
+      .. autoclass:: aoclda.svm.NuSVC(nu=0.5, kernel="rbf", degree=3, gamma=-1.0, coef0=0.0, probability=False, tol=0.001, max_iter=-1, tau=1.0e-12, check_data=False)
+         :members:
+         :inherited-members:
+      .. autoclass:: aoclda.svm.NuSVR(nu=0.5, C=1.0, kernel="rbf", degree=3, gamma=-1.0, coef0=0.0, tol=0.001, max_iter=-1, tau=1.0e-12, check_data=False)
+         :members:
+         :inherited-members:
+
+   .. tab-item:: C
+
+      .. _da_svm_select_model:
+
+      .. doxygenfunction:: da_svm_select_model_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_svm_select_model_d
+         :project: da
+
+      .. _da_svm_set_data:
+
+      .. doxygenfunction:: da_svm_set_data_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_svm_set_data_d
+         :project: da
+
+      .. _da_svm_compute:
+
+      .. doxygenfunction:: da_svm_compute_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_svm_compute_d
+         :project: da
+
+      .. _da_svm_predict:
+
+      .. doxygenfunction:: da_svm_predict_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_svm_predict_d
+         :project: da
+
+      .. _da_svm_decision_function:
+
+      .. doxygenfunction:: da_svm_decision_function_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_svm_decision_function_d
+         :project: da
+
+      .. _da_svm_score:
+
+      .. doxygenfunction:: da_svm_score_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_svm_score_d
+         :project: da
+
+      .. doxygentypedef:: da_svm_model
+         :project: da
+      .. doxygenenum:: da_svm_model_
+         :project: da
+
+      .. doxygentypedef:: da_svm_decision_function_shape
+         :project: da
+      .. doxygenenum:: da_svm_decision_function_shape_
+         :project: da

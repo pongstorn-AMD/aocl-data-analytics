@@ -25,8 +25,76 @@
 
 
 
+.. _chapter_kernel_functions:
+
+Kernel Functions
+****************
+
+A kernel function computes the inner product of two data points in some (potentially high-dimensional) feature space without requiring an explicit mapping.
+By carefully choosing the kernel, one can capture complex relationships or nonlinear separations in the data.
+
+Common Kernel Functions
+=========================
+
+1. **Linear Kernel**:
+    Computes the standard dot product of two vectors in the original feature space.
+    Useful if the data are approximately linearly separable.
+
+    .. math::
+        K(x, y) = x \cdot y.
+
+2. **RBF (Radial Basis Function) Kernel**:
+    Projects every data point into an infinite-dimensional feature space, enabling nonlinear decision boundaries.
+    Due to its flexibility, the RBF kernel often works well on a wide range of datasets and is a common default method.
+
+    .. math::
+        K(x, y) = \exp(-\gamma \|x - y\|^2).
+
+3. **Polynomial Kernel**:
+    Maps data points into higher-dimensional feature space via polynomial terms.
+    Useful for capturing polynomial relationships between features.
+
+    .. math::
+        K(x, y) = (\gamma x \cdot y + c)^d.
+
+4. **Sigmoid Kernel**:
+    Similar to neural network activation functions.
+    Sometimes used for certain data distributions, though not as common as RBF or polynomial.
+
+    .. math::
+        K(x, y) = \tanh(\gamma x \cdot y + c).
+
+
+Examples
+========
+
+.. tab-set::
+
+   .. tab-item:: Python
+      :sync: Python
+
+      The code below is supplied with your installation (see :ref:`Python examples <python_examples>`).
+
+      .. collapse:: Kernel Functions Example
+
+          .. literalinclude:: ../../python_interface/python_package/aoclda/examples/kernel_functions_ex.py
+              :language: Python
+              :linenos:
+
+   .. tab-item:: C
+      :sync: C
+
+      The example sources can be found in the ``examples`` folder of your installation.
+
+      .. collapse:: Kernel Functions Example
+
+          .. literalinclude:: ../../tests/examples/kernel_functions.cpp
+              :language: C++
+              :linenos:
+
+
 Kernel Functions APIs
-*********************
+========================
 
 .. tab-set::
 

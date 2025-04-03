@@ -136,9 +136,31 @@ Examples
               :language: C++
               :linenos:
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
 
-    metrics_api
+Distance Metric APIs
+==========================
 
+.. tab-set::
+
+    .. tab-item:: Python
+
+        .. autofunction:: aoclda.metrics.pairwise_distances(X, Y=None, metric="euclidean", p=2.0, force_all_finite="allow_infinite")
+
+    .. tab-item:: C
+
+        .. _da_pairwise_distances:
+
+        .. doxygenfunction:: da_pairwise_distances_s
+            :project: da
+            :outline:
+        .. doxygenfunction:: da_pairwise_distances_d
+           :project: da
+
+        .. doxygentypedef:: da_metric
+           :project: da
+        .. doxygenenum:: da_metric_
+           :project: da
+        .. doxygentypedef:: da_data_types
+           :project: da
+        .. doxygenenum:: da_data_types_
+           :project: da

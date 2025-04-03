@@ -136,8 +136,58 @@ Examples
               :language: C++
               :linenos:
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
 
-    knn_api
+
+*k*-Nearest Neighbors APIs
+===============================
+
+*k*-Nearest Neighbors for Classification
+---------------------------------------------
+.. tab-set::
+
+   .. tab-item:: Python
+
+      .. autoclass:: aoclda.nearest_neighbors.knn_classifier(n_neighbors=5, weights='uniform', algorithm='brute', metric='euclidean', p=2.0, check_data=false)
+         :members:
+
+   .. tab-item:: C
+
+      .. _da_knn_set_training_data:
+
+      .. doxygenfunction:: da_knn_set_training_data_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_knn_set_training_data_d
+         :project: da
+
+      .. _da_knn_kneighbors:
+
+      .. doxygenfunction:: da_knn_kneighbors_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_knn_kneighbors_d
+         :project: da
+
+      .. _da_knn_classes:
+
+      .. doxygenfunction:: da_knn_classes_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_knn_classes_d
+         :project: da
+
+      .. _da_knn_predict_proba:
+
+      .. doxygenfunction:: da_knn_predict_proba_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_knn_predict_proba_d
+         :project: da
+
+      .. _da_knn_predict:
+
+      .. doxygenfunction:: da_knn_predict_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_knn_predict_d
+         :project: da

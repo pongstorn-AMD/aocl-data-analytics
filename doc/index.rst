@@ -1,5 +1,5 @@
 ..
-    Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
+    Copyright (C) 2023-2025 Advanced Micro Devices, Inc. All rights reserved.
 
     Redistribution and use in source and binary forms, with or without modification,
     are permitted provided that the following conditions are met:
@@ -29,8 +29,8 @@
 
 .. _aocl-da-index:
 
-AOCL-DA
-*******
+AOCL-Data Analytics
+********************
 
 The AOCL Data Analytics Library (AOCL-DA) is a software library providing optimized building blocks for data analysis.
 It provides users with a complete workflow, including data handling, preprocessing, modeling and validation.
@@ -53,44 +53,84 @@ You can also install AOCL-DA using the AOCL spack recipe: https://www.amd.com/en
 .. AOCL-DA is developed and maintained by AMD (https://www.amd.com/). For support or queries, you can e-mail us on
    toolchainsupport@amd.com.
 
-Library Reference Documentation
--------------------------------
+AOCL-DA for Python
+------------------
+
+* :doc:`python_intro`
+* :doc:`sklearn`
 
 .. toctree::
    :maxdepth: 1
+   :hidden:
    :caption: AOCL-DA for Python
 
    python_intro
    sklearn
 
+AOCL-DA for C
+-------------
+
+* :doc:`C_intro`
+* :doc:`data_management/data`
+* :doc:`da_handle/handle`
+* :doc:`options/option`
+* :doc:`errors/error`
+* :doc:`results/results`
+
 .. toctree::
    :maxdepth: 1
+   :hidden:
    :caption: AOCL-DA for C
 
    C_intro
-   data_management/data_intro
-   da_handle/handle_intro
-   options/option_intro
-   errors/error_intro
-   results/results_intro
+   data_management/data
+   da_handle/handle
+   options/option
+   errors/error
+   results/results
+
+Algorithms
+----------
+
+* :doc:`basic_statistics/basic_stats`
+* :doc:`clustering/clustering`
+* :doc:`factorization/factorization`
+* :doc:`linear_models/linear_models`
+* :doc:`nonlinear_models/nldf`
+* :doc:`trees_forests/trees_forest`
+* :doc:`metrics/metrics`
+* :doc:`nearest_neighbors/knn`
+* :doc:`kernel_functions/kernel_functions`
+* :doc:`svm/svm`
+
 
 .. toctree::
    :maxdepth: 1
+   :hidden:
    :caption: Algorithms
 
-   basic_statistics/basic_stats_intro
-   clustering/clustering_intro
-   factorization/factorization_intro
-   linear_models/linmod_intro
-   nonlinear_models/nldf_intro
-   trees_forests/df_intro
-   metrics/metrics_intro
-   nearest_neighbors/knn_intro
-   kernel_functions/kernel_functions_intro
-   svm/svm_intro
+   basic_statistics/basic_stats
+   clustering/clustering
+   factorization/factorization
+   linear_models/linear_models
+   nonlinear_models/nldf
+   trees_forests/trees_forest
+   metrics/metrics
+   nearest_neighbors/knn
+   kernel_functions/kernel_functions
+   svm/svm
+
+Appendices
+----------
+
+* :doc:`options/all_table`
+* :doc:`bibliography`
+* :doc:`genindex`
+* :doc:`search`
 
 .. toctree::
     :maxdepth: 1
+    :hidden:
     :caption: Appendices
 
     options/all_table

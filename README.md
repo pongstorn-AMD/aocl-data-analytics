@@ -160,7 +160,7 @@ To configure only, from the source directory, you can use:
 ```
 cmake --preset linux-gcc-mt-lp64-static-release-dynamic
 ```
-For example, this will configure CMake for Linux platform so that CMake uses GCC to build a multi-threaded (mt) LP64 Release library with dynamic dispatch.
+For example, this will configure CMake for Linux platform so that CMake uses GCC to build a multi-threaded (mt) LP64 Release library with dynamic dispatch. 
 This command will generate a build directory with the corresponding naming convention "build-linux-gcc-mt-lp64-static-dynamic-release".
 One can simply `cd build-linux-gcc-mt-lp64-static-dynamic-release` and continue the usual process of building, installing and so on.
 

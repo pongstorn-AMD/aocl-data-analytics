@@ -258,8 +258,87 @@ Examples (clustering)
             :language: C++
             :linenos:
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
 
-    clustering_api
+
+Clustering APIs
+=================
+
+*k*-means
+------------
+
+.. tab-set::
+
+   .. tab-item:: Python
+
+      .. autoclass:: aoclda.clustering.kmeans(n_clusters=1, initialization_method='k-means++', C=None, n_init=10, max_iter=300, seed=-1, algorithm='elkan', tol=1.0e-4, check_data=false)
+         :members:
+
+   .. tab-item:: C
+
+      .. _da_kmeans_set_data:
+
+      .. doxygenfunction:: da_kmeans_set_data_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_kmeans_set_data_d
+         :project: da
+
+      .. _da_kmeans_set_init_centres:
+
+      .. doxygenfunction:: da_kmeans_set_init_centres_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_kmeans_set_init_centres_d
+         :project: da
+
+      .. _da_kmeans_compute:
+
+      .. doxygenfunction:: da_kmeans_compute_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_kmeans_compute_d
+         :project: da
+
+      .. _da_kmeans_transform:
+
+      .. doxygenfunction:: da_kmeans_transform_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_kmeans_transform_d
+         :project: da
+
+      .. _da_kmeans_predict:
+
+      .. doxygenfunction:: da_kmeans_predict_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_kmeans_predict_d
+         :project: da
+
+DBSCAN
+---------
+
+.. tab-set::
+
+   .. tab-item:: Python
+
+      .. autoclass:: aoclda.clustering.DBSCAN(min_samples=5, metric='euclidean', algorithm='brute', leaf_size=30, eps=0.5, power=2.0, check_data=false)
+         :members:
+
+   .. tab-item:: C
+
+      .. _da_dbscan_set_data:
+
+      .. doxygenfunction:: da_dbscan_set_data_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_dbscan_set_data_d
+         :project: da
+
+      .. _da_dbscan_compute:
+
+      .. doxygenfunction:: da_dbscan_compute_s
+         :project: da
+         :outline:
+      .. doxygenfunction:: da_dbscan_compute_d
+         :project: da

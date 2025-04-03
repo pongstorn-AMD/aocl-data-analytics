@@ -24,9 +24,92 @@
     POSSIBILITY OF SUCH DAMAGE.
 
 
+Basic Statistics
+****************
+
+
+This chapter contains functions to compute basic statistical quantities such as the mean,
+variance or quantiles of a data matrix. Utility routines for standardizing the data are
+also available, and correlation and covariance matrices can also be computed. For more information on basic statistical quantities, see cite:t:`da_rice`, cite:t:`da_kozw2000`.
+These functions operate on a ``n_rows`` :math:`\times`  ``n_cols`` matrix stored in either column- or row-major order.
+
+Choosing an axis
+------------------
+
+Most statistical quantities can be computed by column, by row or for the data matrix overall.
+
+.. tab-set::
+
+   .. tab-item:: Python
+      :sync: Python
+
+      This is specified using the :py:attr:`axis` function parameter.
+
+      The ``axis`` parameter can take the following values:
+
+      - ``'col'`` - statistical quantities will be computed for each column of the data matrix
+
+      - ``'row'`` - statistical quantities will be computed for each row of the data matrix
+
+      - ``'all'`` - statistical quantities will be computed for the whole data matrix
+
+      For example, if the function :py:func:`mean` is called with the :py:attr:`axis` argument set
+      to ``col``, then ``n_cols`` means will be computed, one for each column. If the
+      :py:attr:`axis` argument is set to ``all``, then a single mean will be computed.
+
+      Note that the functions in this chapter do not check for the presence of NaNs in your input data.
+
+   .. tab-item:: C
+      :sync: C
+
+      This is specified using the :cpp:type:`da_axis` enum.
+
+      The :cpp:type:`da_axis` enum can take the following values:
+
+      - ``da_axis_col`` - statistical quantities will be computed for each column of the data matrix
+
+      - ``da_axis_row`` - statistical quantities will be computed for each row of the data matrix
+
+      - ``da_axis_all`` - statistical quantities will be computed for the whole data matrix
+
+      For example, if the routine :cpp:func:`da_mean_s` is called with the :cpp:type:`da_axis` argument set
+      to :cpp:enumerator:`da_axis_col`, then ``n_cols`` means will be computed, one for each column. If the
+      :cpp:type:`da_axis` argument is set to ``da_axis_all``, then a single mean will be computed.
+
+      The functions in this chapter do not check for the presence of NaNs in your input data.
+      You can use the :cpp:func:`da_check_data_s` function to check for NaNs in your data.
+
+Examples
+--------
+
+.. tab-set::
+
+   .. tab-item:: Python
+      :sync: Python
+
+      The code below is supplied with your installation (see :ref:`Python examples <python_examples>`).
+
+      .. collapse:: Basic Statistics Example
+
+          .. literalinclude:: ../../python_interface/python_package/aoclda/examples/basic_stats_ex.py
+              :language: Python
+              :linenos:
+
+   .. tab-item:: C
+      :sync: C
+
+      The code below can be found in ``basic_statistics.cpp`` in the ``examples`` folder of your installation.
+
+      .. collapse:: Basic Statistics Example Code
+
+         .. literalinclude:: ../../tests/examples/basic_statistics.cpp
+            :language: C++
+            :linenos:
+
+
 
 Basic Statistics APIs
-*********************
+---------------------
 
 .. tab-set::
 

@@ -25,64 +25,43 @@
 
 
 
-Linear Model APIs
+.. _extracting-results:
+
+Extracting Results
 ******************
 
-.. tab-set::
+In order to simplify AOCL-DA C APIs, the results of computations are stored within the :cpp:type:`da_handle`.
+Results can be extracted from handles using :cpp:func:`da_handle_get_result_d`, :cpp:func:`da_handle_get_result_s` and :cpp:func:`da_handle_get_result_int`, depending on the datatype of the required result.
+Each of these routines takes four arguments:
 
-   .. tab-item:: Python
+1. the :cpp:type:`da_handle` used in the computation,
+2. a :cpp:type:`da_result` enumeration, specifying which result is required,
+3. a pointer to the size of the array which the result will be written to,
+4. an array in which to write the result.
 
-      .. autoclass:: aoclda.linear_model.linmod(mod, intercept=False, solver='auto', scaling='auto', max_iter=None, constraint='ssc', reg_lambda=0.0, reg_alpha=0.0, warm_start=False, tol=1.0e-4, progress_factor=None, check_data=False)
-         :members:
+The specific results available (i.e. the possible values of :cpp:type:`da_result`) are described in the documentation for the particular computational API you are using.
 
-   .. tab-item:: C
+If the array supplied is too small, then the error ``da_status_invalid_array_dimension`` will be returned and the pointer to the size of the array will be overwritten with the minimum size required to hold the result.
 
-      .. _da_linmod_select_model:
 
-      .. doxygenfunction:: da_linmod_select_model_s
-         :project: da
-         :outline:
-      .. doxygenfunction:: da_linmod_select_model_d
-         :project: da
+Result Extraction APIs
+============================
 
-      .. _da_linmod_define_features:
+.. _da_handle_get_result:
 
-      .. doxygenfunction:: da_linmod_define_features_s
-         :project: da
-         :outline:
-      .. doxygenfunction:: da_linmod_define_features_d
-         :project: da
+.. doxygenfunction:: da_handle_get_result_int
+   :project: da
+   :outline:
+.. doxygenfunction:: da_handle_get_result_s
+   :project: da
+   :outline:
+.. doxygenfunction:: da_handle_get_result_d
+   :project: da
 
-      .. _da_linmod_fit:
+``da_result`` enums
+-------------------
 
-      .. doxygenfunction:: da_linmod_fit_s
-         :project: da
-         :outline:
-      .. doxygenfunction:: da_linmod_fit_d
-         :project: da
-
-      .. _da_linmod_fit_start:
-
-      .. doxygenfunction:: da_linmod_fit_start_s
-         :project: da
-         :outline:
-      .. doxygenfunction:: da_linmod_fit_start_d
-         :project: da
-
-      .. _da_linmod_evaluate_model:
-
-      .. doxygenfunction:: da_linmod_evaluate_model_s
-         :project: da
-         :outline:
-      .. doxygenfunction:: da_linmod_evaluate_model_d
-         :project: da
-
-      .. doxygentypedef:: linmod_model
-         :project: da
-      .. doxygenenum:: linmod_model_
-         :project: da
-
-      .. _da_linmod_info_t:
-
-      .. doxygenenum:: da_linmod_info_t_
-         :project: da
+.. doxygentypedef:: da_result
+   :project: da
+.. doxygenenum:: da_result_
+   :project: da
