@@ -61,7 +61,7 @@ AOCL-DA supports the following choices of :math:`Q(p)`,
    \operatorname{Cross-entropy or deviance: } & \ -p \log(p) - (1-p) \log(1-p)
 
 Fitting
---------
+========
 
 Decision tree fitting is performed by growing a tree recursively, starting with a single base node.
 Each node has an associated depth, which corresponds to the number of splits required to get to that node from the base node. If the
@@ -98,7 +98,7 @@ forests, the order in which features are selected is randomized.  This means tha
 value of :math:`C_m(j, s)`, then whichever value of :math:`j` is sampled first will be the split variable.
 
 Prediction
-------------
+============
 
 Decision tree prediction is performed by using the set of split feature indices and thresholds to determine which terminal
 node a new observation belongs to.  Once the terminal node has been identified, the prediction is determined by the
@@ -109,7 +109,7 @@ Decision forest prediction is performed by producing an ensemble of decision tre
 determine the prediction of the decision forest.
 
 Typical workflow for decision trees and decision forests
---------------------------------------------------------
+=========================================================
 
 The following workflow can be used to fit a decision tree or a decision forest model and use it to make predictions,
 
@@ -156,7 +156,7 @@ The following workflow can be used to fit a decision tree or a decision forest m
       6. Make predictions using the fitted model using :ref:`da_forest_predict_? <da_forest_predict>`.
 
 Options
--------
+========
 
 .. tab-set::
 
@@ -199,7 +199,7 @@ Options
 
 
 Choosing the decision forest options
-""""""""""""""""""""""""""""""""""""
+------------------------------------
 
 By default, the number of features to use in each split is set to be the square root of the total number of
 features.  This can be changed through the ``features selection`` option.  If ``features
@@ -220,7 +220,7 @@ that that all the data required to fit the decision forest can be stored in DRAM
 
 
 Examples
---------
+=========
 
 .. tab-set::
 
@@ -247,14 +247,14 @@ Examples
             :linenos:
 
 Further reading
-----------------
+=================
 
 An introduction to decision trees and to decision forests can be found in Chapters 9 and 15 of :cite:t:`da_hastie`.
 
 
 
 Decision tree and decision forest APIs
------------------------------------------
+========================================
 
 This chapter contains two sets of APIs, one for classification using a single :ref:`decision tree <da_decision_trees_apis>` and another
 one for the ensemble method :ref:`decision forests<da_decision_forests_apis>` (also known as random forests).
@@ -262,7 +262,7 @@ one for the ensemble method :ref:`decision forests<da_decision_forests_apis>` (a
 .. _da_decision_trees_apis:
 
 Decision trees
-^^^^^^^^^^^^^^^^^
+----------------
 
 .. tab-set::
 
@@ -327,7 +327,7 @@ Decision trees
 .. _da_decision_forests_apis:
 
 Decision forests
-^^^^^^^^^^^^^^^^^^
+-----------------
 
 .. tab-set::
 

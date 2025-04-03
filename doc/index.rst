@@ -56,13 +56,8 @@ You can also install AOCL-DA using the AOCL spack recipe: https://www.amd.com/en
 AOCL-DA for Python
 ------------------
 
-* :doc:`python_intro`
-* :doc:`sklearn`
-
 .. toctree::
    :maxdepth: 1
-   :hidden:
-   :caption: AOCL-DA for Python
 
    python_intro
    sklearn
@@ -70,17 +65,8 @@ AOCL-DA for Python
 AOCL-DA for C
 -------------
 
-* :doc:`C_intro`
-* :doc:`data_management/data`
-* :doc:`da_handle/handle`
-* :doc:`options/option`
-* :doc:`errors/error`
-* :doc:`results/results`
-
 .. toctree::
    :maxdepth: 1
-   :hidden:
-   :caption: AOCL-DA for C
 
    C_intro
    data_management/data
@@ -92,22 +78,8 @@ AOCL-DA for C
 Algorithms
 ----------
 
-* :doc:`basic_statistics/basic_stats`
-* :doc:`clustering/clustering`
-* :doc:`factorization/factorization`
-* :doc:`linear_models/linear_models`
-* :doc:`nonlinear_models/nldf`
-* :doc:`trees_forests/trees_forest`
-* :doc:`metrics/metrics`
-* :doc:`nearest_neighbors/knn`
-* :doc:`kernel_functions/kernel_functions`
-* :doc:`svm/svm`
-
-
 .. toctree::
    :maxdepth: 1
-   :hidden:
-   :caption: Algorithms
 
    basic_statistics/basic_stats
    clustering/clustering
@@ -123,15 +95,8 @@ Algorithms
 Appendices
 ----------
 
-* :doc:`options/all_table`
-* :doc:`bibliography`
-* :doc:`genindex`
-* :doc:`search`
-
 .. toctree::
     :maxdepth: 1
-    :hidden:
-    :caption: Appendices
 
     options/all_table
     bibliography

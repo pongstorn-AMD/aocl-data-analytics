@@ -37,13 +37,6 @@ Functions which take a :cpp:type:`da_handle` or :cpp:type:`da_datastore` as thei
 This information can be extracted using :cpp:func:`da_handle_print_error_message` or :cpp:func:`da_datastore_print_error_message`.
 Error messages prepended with "DA_WARN" indicate that a problem was encountered but the computation was able to continue. The returned result is potentially useful but the user should check the output. Error messages prepended with "DA_ERROR" indicate that the computation was unable to complete and no useful result is returned.
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-
-    error_api
-
-
 
 .. _error_api:
 
