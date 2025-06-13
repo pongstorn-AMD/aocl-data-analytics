@@ -127,3 +127,58 @@ da_status da_get_arch_info(da_int *len = nullptr, char *arch = nullptr,
     }
     return da_status_success;
 }
+
+da_status da_debug_set(const char *key, const char *value) {
+    // assumes strings are null-terminated
+    if (!key || !value) {
+        return da_status_invalid_input;
+    }
+    try {
+        std::string lkey{key};
+        std::string lvalue{value};
+        // convert to lower case
+        da_options::OptionUtils::prep_str(lkey);
+        da_options::OptionUtils::prep_str(lvalue);
+        // don't allow empty key...
+        if (lkey.empty()) {
+            return da_status_invalid_input;
+        }
+        context::get_context()->set_hidden_setting(lkey, lvalue);
+    } catch (const std::exception &) {
+        return da_status_operation_failed;
+    }
+    return da_status_success;
+}
+
+da_status da_debug_get(const char *key, da_int lvalue, char *value) {
+    if (!key || !value) {
+        // print all the dictionary
+        if (context::get_context()->hidden_settings.empty()) {
+            std::cout << "\nNo context settings registered.\n" << std::endl;
+            return da_status_success;
+        }
+        std::cout << "\nBegin Context Settings" << '\n';
+        for (const auto &n : context::get_context()->hidden_settings) {
+            std::cout << "    " << std::left << std::setw(30) << n.first << " : "
+                      << n.second << '\n';
+        }
+        std::cout << "End Context Settings\n" << std::endl;
+        return da_status_success;
+    }
+    if (lvalue < 100) {
+        return da_status_invalid_input;
+    }
+    std::string lkey{key};
+    // convert to lower case
+    da_options::OptionUtils::prep_str(lkey);
+    auto it = context::get_context()->hidden_settings.find(lkey);
+    if (it == context::get_context()->hidden_settings.end()) {
+        // don't touch value, just return error
+        return da_status_option_not_found;
+    }
+    std::string ans = context::get_context()->hidden_settings[lkey];
+    size_t len = std::min(static_cast<size_t>(lvalue - 1), ans.size());
+    std::copy(ans.begin(), ans.begin() + len, value);
+    value[len] = '\0'; // null-terminate
+    return da_status_success;
+}

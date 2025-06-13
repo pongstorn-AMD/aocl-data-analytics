@@ -52,6 +52,7 @@ class KNeighborsClassifier(KNeighborsClassifier_sklearn):
         self.n_neighbors = n_neighbors
         self.weights = weights
         self.algorithm = algorithm
+
         self.p = p
         self.metric = metric
         self.precision = "double"
@@ -70,11 +71,11 @@ class KNeighborsClassifier(KNeighborsClassifier_sklearn):
                  and have been ignored.",
                 category=RuntimeWarning)
 
-        # Add warning if any algorithm other than Brute Force is selected
-        if algorithm not in ('brute'):
-            algorithm = 'brute'
-            warnings.warn(
-                "Invalid algorithm chosen, defaulting to brute.", category=RuntimeWarning)
+        # Error handling for unsupported parameters
+        available_algorithms = ('auto', 'brute', 'kd_tree')
+        if algorithm not in available_algorithms:
+            raise ValueError(
+                "Invalid algorithm chosen, available options are ", available_algorithms)
         if weights not in ('uniform','distance'):
             raise ValueError(
                 "invalid weights chosen, available options are 'uniform' and 'distance'.")

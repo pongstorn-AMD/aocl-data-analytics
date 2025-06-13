@@ -315,10 +315,8 @@ def test_warning(no_fortran):
     if no_fortran:
         pytest.skip("Skipping test due to no_fortran flag")
 
-    tol = 1e-7
     n_coef = 2
     n_res = 5
-    xexp = np.array([2.54104549, 0.25950481])
     x = np.array([2.5, 0.25])
     w = 0.12 * np.array([1, 1, 1, 1, 1])
     blx = np.array([0.0,  0.0])
@@ -333,23 +331,24 @@ def test_warning(no_fortran):
 def test_unsupported_type(no_fortran):
     if no_fortran:
         pytest.skip("Skipping test due to no_fortran flag")
-
-    tol = 1e-7
+        
+    t = np.array([1.0, 2.0, 4.0,  5.0,  8.0])
+    y = np.array([3.0, 4.0, 6.0, 11.0, 20.0])
+    data = {'t': t, 'y': y}
     n_coef = 2
     n_res = 5
-    xexp = np.array([2.54104549, 0.25950481])
     x = np.array([2.5, 0.25], np.float16)
     w = 0.12 * np.array([1, 1, 1, 1, 1], np.float16)
     blx = np.array([0.0,  0.0], np.float16)
     bux = np.array([5.0,  3.0], np.float16)
     # Test .nlls(...) with unsupported type
-    with pytest.raises(ValueError):
+    with pytest.warns(UserWarning):
         ndf = nlls(n_coef, n_res, weights=w,
                lower_bounds=blx, upper_bounds=bux)
     # Test .fit(...) with unsupported type
     ndf = nlls(n_coef, n_res)
-    with pytest.raises(ValueError):
-        ndf.fit(x, exp_r)
+    with pytest.warns(UserWarning):
+        ndf.fit(x, exp_r, data=data)
 
 def test_nan(no_fortran):
     if no_fortran:

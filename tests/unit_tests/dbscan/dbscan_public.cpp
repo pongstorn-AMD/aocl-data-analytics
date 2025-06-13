@@ -188,7 +188,7 @@ TYPED_TEST(DBSCANTest, ErrorExits) {
 
     EXPECT_EQ(da_handle_init<TypeParam>(&handle, da_handle_dbscan), da_status_success);
 
-    // error exits to do with routines called in the wrong order
+    // Error exits to do with routines called in the wrong order
 
     EXPECT_EQ(da_dbscan_compute<TypeParam>(handle), da_status_no_data);
     EXPECT_EQ(da_handle_get_result(handle, da_rinfo, &dim, results_arr),
@@ -196,24 +196,34 @@ TYPED_TEST(DBSCANTest, ErrorExits) {
     EXPECT_EQ(da_handle_get_result_int(handle, da_rinfo, &dim, results_arr_int),
               da_status_no_data);
 
-    // compute error exits
+    // Test error exits in compute
+
+    // k-d tree with cosine metic
     std::string s1 = "kd tree";
     EXPECT_EQ(da_options_set_string(handle, "algorithm", s1.c_str()), da_status_success);
+    std::string s2 = "cosine";
+    EXPECT_EQ(da_options_set_string(handle, "metric", s2.c_str()), da_status_success);
     EXPECT_EQ(da_dbscan_set_data(handle, n_samples, n_features, A.data(), lda),
               da_status_success);
-    EXPECT_EQ(da_dbscan_compute<TypeParam>(handle), da_status_invalid_option);
-    s1 = "brute parallel";
-    std::string s2 = "Minkowski";
+    EXPECT_EQ(da_dbscan_compute<TypeParam>(handle), da_status_incompatible_options);
+
+    // k-d tree with Minkowski metric and p < 1
+    s2 = "minkowski";
     EXPECT_EQ(da_options_set_string(handle, "algorithm", s1.c_str()), da_status_success);
     EXPECT_EQ(da_options_set(handle, "min samples", (da_int)2), da_status_success);
     EXPECT_EQ(da_options_set(handle, "eps", (TypeParam)20.0), da_status_success);
     EXPECT_EQ(da_options_set_string(handle, "metric", s2.c_str()), da_status_success);
+    EXPECT_EQ(da_options_set(handle, "power", (TypeParam)0.5), da_status_success);
     EXPECT_EQ(da_dbscan_set_data(handle, n_samples, n_features, A.data(), lda),
               da_status_success);
-    EXPECT_EQ(da_dbscan_compute<TypeParam>(handle), da_status_invalid_option);
+    EXPECT_EQ(da_dbscan_compute<TypeParam>(handle), da_status_incompatible_options);
 
+    s1 = "brute";
     s2 = "Euclidean";
+    EXPECT_EQ(da_options_set_string(handle, "algorithm", s1.c_str()), da_status_success);
     EXPECT_EQ(da_options_set_string(handle, "metric", s2.c_str()), da_status_success);
+    EXPECT_EQ(da_options_set(handle, "min samples", (da_int)2), da_status_success);
+    EXPECT_EQ(da_options_set(handle, "eps", (TypeParam)20.0), da_status_success);
     EXPECT_EQ(da_dbscan_set_data(handle, n_samples, n_features, A.data(), lda),
               da_status_success);
     EXPECT_EQ(da_dbscan_compute<TypeParam>(handle), da_status_success);

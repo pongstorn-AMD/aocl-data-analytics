@@ -105,9 +105,18 @@ For regression, a similar formulation is used, minimizing errors within an margi
 
 Implementation details
 ----------------------
-We implement ThunderSVM (see cite:t:`da_wenthundersvm18`), a specialized variant of the Sequential Minimal Optimization (SMO) algorithm, to solve the dual problem.
+We implement ThunderSVM (see :cite:t:`da_wenthundersvm18`), a specialized variant of the Sequential Minimal Optimization (SMO) algorithm, to solve the dual problem.
 This approach iteratively decomposes the dual problem into smaller subproblems of certain size, and solves each with SMO until the overall solution converges.
 
+Caching
+-------
+Our implementation uses a kernel cache to accelerate computations by storing previously calculated kernel matrix values. 
+This caching mechanism significantly reduces computational overhead, especially for larger datasets where the same kernel values would otherwise be repeatedly calculated.
+
+.. note::
+
+   You can control the kernel cache size with the :ref:`cache size <svm_options>` option (default: 200 MB). When the cache reaches capacity, a 
+   least recently used (LRU) strategy evicts older entries.
 
 Typical workflow for SVM
 ------------------------
@@ -184,6 +193,7 @@ SVM options
 
          "kernel", "string", ":math:`s=` `rbf`", "Kernel function to use for the calculations.", ":math:`s=` `linear`, `poly`, `polynomial`, `rbf`, or `sigmoid`."
          "coef0", "real", ":math:`r=0`", "Constant in 'polynomial' and 'sigmoid' kernels.", "There are no constraints on :math:`r`."
+         "cache size", "real", ":math:`r=200`", "Size of the kernel cache in MB. The default value is 200MB.", ":math:`0 \le r`"
          "gamma", "real", ":math:`r=-1`", "Parameter for 'rbf', 'polynomial', and 'sigmoid' kernels. If the value is less than 0, it is set to 1/(n_features * Var(X)).", ":math:`-1 \le r`"
          "epsilon", "real", ":math:`r=0.1`", "Defines the tolerance for errors in predictions by creating an acceptable margin (tube) within which errors are not penalized. Applies to SVR", ":math:`0 \le r`"
          "tau", "real", ":math:`r=\varepsilon`", "Numerical stability parameter used in working set selection when kernel is not positive semi definite.", ":math:`0 \le r`"
@@ -237,16 +247,16 @@ Support Vector Machine APIs
 
    .. tab-item:: Python
 
-      .. autoclass:: aoclda.svm.SVC(C=1.0, kernel="rbf", degree=3, gamma=-1.0, coef0=0.0, probability=False, tol=0.001, max_iter=-1, tau=1.0e-12, check_data=False)
+      .. autoclass:: aoclda.svm.SVC(C=1.0, kernel="rbf", degree=3, gamma=-1.0, coef0=0.0, probability=False, tol=0.001, cache_size=200.0, max_iter=-1, tau=1.0e-12, check_data=False)
          :members:
          :inherited-members:
-      .. autoclass:: aoclda.svm.SVR(C=1.0, epsilon=0.1, kernel="rbf", degree=3, gamma=-1.0, coef0=0.0, tol=0.001, max_iter=-1, tau=1.0e-12, check_data=False)
+      .. autoclass:: aoclda.svm.SVR(C=1.0, epsilon=0.1, kernel="rbf", degree=3, gamma=-1.0, coef0=0.0, tol=0.001, cache_size=200.0, max_iter=-1, tau=1.0e-12, check_data=False)
          :members:
          :inherited-members:
-      .. autoclass:: aoclda.svm.NuSVC(nu=0.5, kernel="rbf", degree=3, gamma=-1.0, coef0=0.0, probability=False, tol=0.001, max_iter=-1, tau=1.0e-12, check_data=False)
+      .. autoclass:: aoclda.svm.NuSVC(nu=0.5, kernel="rbf", degree=3, gamma=-1.0, coef0=0.0, probability=False, tol=0.001, cache_size=200.0, max_iter=-1, tau=1.0e-12, check_data=False)
          :members:
          :inherited-members:
-      .. autoclass:: aoclda.svm.NuSVR(nu=0.5, C=1.0, kernel="rbf", degree=3, gamma=-1.0, coef0=0.0, tol=0.001, max_iter=-1, tau=1.0e-12, check_data=False)
+      .. autoclass:: aoclda.svm.NuSVR(nu=0.5, C=1.0, kernel="rbf", degree=3, gamma=-1.0, coef0=0.0, tol=0.001, cache_size=200.0, max_iter=-1, tau=1.0e-12, check_data=False)
          :members:
          :inherited-members:
 

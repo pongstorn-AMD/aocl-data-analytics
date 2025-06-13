@@ -29,6 +29,7 @@ aoclda.svm module
 """
 import numpy as np
 from ._aoclda.svm import pybind_svc, pybind_svr, pybind_nusvc, pybind_nusvr
+from ._internal_utils import check_convert_data
 
 
 class BaseSVM:
@@ -39,6 +40,7 @@ class BaseSVM:
         gamma=-1.0,
         coef0=0.0,
         tol=0.001,
+        cache_size=200.0,
         max_iter=0,
         tau=None,
         check_data=False,
@@ -50,6 +52,7 @@ class BaseSVM:
         self.gamma = gamma
         self.coef0 = coef0
         self.tol = tol
+        self.cache_size = cache_size
         self.max_iter = max_iter
         self.tau = tau
         self.check_data = check_data
@@ -60,6 +63,9 @@ class BaseSVM:
         self._model = None
 
     def fit(self, X, y, **kwargs):
+        X = check_convert_data(X)
+        y = check_convert_data(y)
+
         if kwargs.get("tau") is None:
             del kwargs["tau"]
         if X.dtype == np.float32:
@@ -73,20 +79,18 @@ class BaseSVM:
             for key in kwargs:
                 kwargs[key] = np.float64(kwargs[key])
 
-        if y.dtype.kind in np.typecodes["AllInteger"]:
-            y = y.astype(X.dtype, copy=False)
-
         self._model.pybind_fit(X, y, **kwargs)
 
         return self
 
     def predict(self, X):
+        X = check_convert_data(X)
         preds = self._model.pybind_predict(X)
         return preds
 
     def score(self, X, y):
-        if y.dtype.kind in np.typecodes["AllInteger"]:
-            y = y.astype(X.dtype, copy=False)
+        X = check_convert_data(X)
+        y = check_convert_data(y)
         return self._model.pybind_score(X, y)
 
     @property
@@ -176,6 +180,7 @@ class SVC(BaseSVM):
         probability (bool, optional): Currently not supported. Whether to enable \
             probability estimates. Default=False.
         tol (float, optional): Tolerance for stopping criterion. Default=0.001.
+        cache_size (float, optional): Size of the kernel cache (in MB). Default=200.0.
         max_iter (int, optional): Hard limit on iterations within solver, or 0 for no limit. \
             Default=0.
 
@@ -193,6 +198,7 @@ class SVC(BaseSVM):
         coef0=0.0,
         probability=False,
         tol=0.001,
+        cache_size=200.0,
         max_iter=0,
         tau=None,
         check_data=False,
@@ -203,6 +209,7 @@ class SVC(BaseSVM):
             gamma=gamma,
             coef0=coef0,
             tol=tol,
+            cache_size=cache_size,
             max_iter=max_iter,
             tau=tau,
             check_data=check_data,
@@ -233,14 +240,14 @@ class SVC(BaseSVM):
         Fit the SVC model according to the given training data.
 
         Args:
-            X (numpy.ndarray): Training vectors of shape (n_samples, n_features).
-            y (numpy.ndarray): Target values of shape (n_samples,). They are expected to range from 0 to \p n_class - 1.
+            X (array-like): Training vectors of shape (n_samples, n_features).
+            y (array-like): Target values of shape (n_samples,). They are expected to range from 0 to \p n_class - 1.
 
         Returns:
             self (object): Returns the instance itself.
         """
         parameters = {"C": self.C, "gamma": self.gamma,
-                      "coef0": self.coef0, "tol": self.tol, "tau": self.tau}
+                      "coef0": self.coef0, "tol": self.tol, "tau": self.tau, "cache_size": self.cache_size}
         super().fit(X, y, **parameters)
         return self
 
@@ -249,7 +256,7 @@ class SVC(BaseSVM):
         Perform classification on samples in X.
 
         Args:
-            X (numpy.ndarray): Input vectors of shape (n_samples, n_features).
+            X (array-like): Input vectors of shape (n_samples, n_features).
 
         Returns:
             numpy.ndarray: Predicted class labels for samples in X.
@@ -271,13 +278,14 @@ class SVC(BaseSVM):
         For binary problems, this parameter is ignored.
 
         Args:
-            X (numpy.ndarray): Input vectors of shape (n_samples, n_features).
+            X (array-like): Input vectors of shape (n_samples, n_features).
             shape (str, optional): Whether to return a one-vs-rest ('ovr') \
             decision function or the original one-vs-one ('ovo'). Default='ovr'.
 
         Returns:
             numpy.ndarray: Decision function values for each sample.
         """
+        X = check_convert_data(X)
         return self._model.pybind_decision_function(X, shape)
 
     def score(self, X, y):
@@ -285,8 +293,8 @@ class SVC(BaseSVM):
         Return the mean accuracy on the given test data and labels.
 
         Args:
-            X (numpy.ndarray): Test samples of shape (n_samples, n_features).
-            y (numpy.ndarray): True labels for X.
+            X (array-like): Test samples of shape (n_samples, n_features).
+            y (array-like): True labels for X.
 
         Returns:
             float: Mean accuracy of self.predict(X) wrt. y.
@@ -327,6 +335,7 @@ class SVR(BaseSVM):
         probability (bool, optional): Currently not supported. Whether to enable \
             probability estimates. Default=False.
         tol (float, optional): Tolerance for stopping criterion. Default=0.001.
+        cache_size (float, optional): Size of the kernel cache (in MB). Default=200.0.
         max_iter (int, optional): Hard limit on iterations within solver, or 0 for no limit. \
             Default=0.
         tau (float, optional): Numerical stability parameter. If it is None then machine \
@@ -343,6 +352,7 @@ class SVR(BaseSVM):
         gamma=-1.0,
         coef0=0.0,
         tol=0.001,
+        cache_size=200.0,
         max_iter=0,
         tau=None,
         check_data=False,
@@ -353,6 +363,7 @@ class SVR(BaseSVM):
             gamma=gamma,
             coef0=coef0,
             tol=tol,
+            cache_size=cache_size,
             max_iter=max_iter,
             tau=tau,
             check_data=check_data,
@@ -381,14 +392,14 @@ class SVR(BaseSVM):
         Fit the SVR model according to the given training data.
 
         Args:
-            X (numpy.ndarray): Training vectors of shape (n_samples, n_features).
-            y (numpy.ndarray): Target values of shape (n_samples,).
+            X (array-like): Training vectors of shape (n_samples, n_features).
+            y (array-like): Target values of shape (n_samples,).
 
         Returns:
             self (object): Returns the instance itself.
         """
         parameters = {"C": self.C, "epsilon": self.epsilon, "gamma": self.gamma,
-                      "coef0": self.coef0, "tol": self.tol, "tau": self.tau}
+                      "coef0": self.coef0, "tol": self.tol, "tau": self.tau, "cache_size": self.cache_size}
         super().fit(X, y, **parameters)
         return self
 
@@ -397,7 +408,7 @@ class SVR(BaseSVM):
         Predict regression values for samples in X.
 
         Args:
-            X (numpy.ndarray): Input vectors of shape (n_samples, n_features).
+            X (array-like): Input vectors of shape (n_samples, n_features).
 
         Returns:
             numpy.ndarray: Predicted values.
@@ -409,8 +420,8 @@ class SVR(BaseSVM):
         Return the coefficient of determination :math:`R^2` of the prediction.
 
         Args:
-            X (numpy.ndarray): Test samples of shape (n_samples, n_features).
-            y (numpy.ndarray): True values for X.
+            X (array-like): Test samples of shape (n_samples, n_features).
+            y (array-like): True values for X.
 
         Returns:
             float: :math:`R^2` of self.predict(X) wrt. y.
@@ -439,6 +450,7 @@ class NuSVC(BaseSVM):
         probability (bool, optional): Currently not supported. Whether to enable \
             probability estimates. Default=False.
         tol (float, optional): Tolerance for stopping criterion. Default=0.001.
+        cache_size (float, optional): Size of the kernel cache (in MB). Default=200.0.
         max_iter (int, optional): Hard limit on iterations within solver, or 0 for no limit. \
             Default=0.
         tau (float, optional): Numerical stability parameter. If it is None then machine \
@@ -455,6 +467,7 @@ class NuSVC(BaseSVM):
         coef0=0.0,
         probability=False,
         tol=0.001,
+        cache_size=200.0,
         max_iter=0,
         tau=None,
         check_data=False,
@@ -465,6 +478,7 @@ class NuSVC(BaseSVM):
             gamma=gamma,
             coef0=coef0,
             tol=tol,
+            cache_size=cache_size,
             max_iter=max_iter,
             tau=tau,
             check_data=check_data,
@@ -494,14 +508,14 @@ class NuSVC(BaseSVM):
         Fit the NuSVC model according to the given training data.
 
         Args:
-            X (numpy.ndarray): Training vectors of shape (n_samples, n_features).
-            y (numpy.ndarray): Target values of shape (n_samples,). They are expected to range from 0 to \p n_class - 1.
+            X (array-like): Training vectors of shape (n_samples, n_features).
+            y (array-like): Target values of shape (n_samples,). They are expected to range from 0 to \p n_class - 1.
 
         Returns:
             self (object): Returns the instance itself.
         """
         parameters = {"nu": self.nu, "gamma": self.gamma,
-                      "coef0": self.coef0, "tol": self.tol, "tau": self.tau}
+                      "coef0": self.coef0, "tol": self.tol, "tau": self.tau, "cache_size": self.cache_size}
         super().fit(X, y, **parameters)
         return self
 
@@ -510,7 +524,7 @@ class NuSVC(BaseSVM):
         Perform classification on samples in X.
 
         Args:
-            X (numpy.ndarray): Input vectors of shape (n_samples, n_features).
+            X (array-like): Input vectors of shape (n_samples, n_features).
 
         Returns:
             numpy.ndarray: Predicted class labels for samples in X.
@@ -532,13 +546,14 @@ class NuSVC(BaseSVM):
         For binary problems, this parameter is ignored.
 
         Args:
-            X (numpy.ndarray): Input vectors of shape (n_samples, n_features).
+            X (array-like): Input vectors of shape (n_samples, n_features).
             shape (str, optional): Whether to return a one-vs-rest ('ovr') \
             decision function or the original one-vs-one ('ovo'). Default='ovr'.
 
         Returns:
             numpy.ndarray: Decision function values for each sample.
         """
+        X = check_convert_data(X)
         return self._model.pybind_decision_function(X, shape)
 
     def score(self, X, y):
@@ -546,8 +561,8 @@ class NuSVC(BaseSVM):
         Return the mean accuracy on the given test data and labels.
 
         Args:
-            X (numpy.ndarray): Test samples of shape (n_samples, n_features).
-            y (numpy.ndarray): True labels for X.
+            X (array-like): Test samples of shape (n_samples, n_features).
+            y (array-like): True labels for X.
 
         Returns:
             float: Mean accuracy of self.predict(X) wrt. y.
@@ -587,6 +602,7 @@ class NuSVR(BaseSVM):
         probability (bool, optional): Currently not supported. Whether to enable \
             probability estimates. Default=False.
         tol (float, optional): Tolerance for stopping criterion. Default=0.001.
+        cache_size (float, optional): Size of the kernel cache (in MB). Default=200.0.
         max_iter (int, optional): Hard limit on iterations within solver, or 0 for no limit. \
             Default=0.
         tau (float, optional): Numerical stability parameter. If it is None then machine \
@@ -603,6 +619,7 @@ class NuSVR(BaseSVM):
         gamma=-1.0,
         coef0=0.0,
         tol=0.001,
+        cache_size=200.0,
         max_iter=0,
         tau=None,
         check_data=False,
@@ -613,6 +630,7 @@ class NuSVR(BaseSVM):
             gamma=gamma,
             coef0=coef0,
             tol=tol,
+            cache_size=cache_size,
             max_iter=max_iter,
             tau=tau,
             check_data=check_data,
@@ -641,14 +659,14 @@ class NuSVR(BaseSVM):
         Fit the NuSVR model according to the given training data.
 
         Args:
-            X (numpy.ndarray): Training vectors of shape (n_samples, n_features).
-            y (numpy.ndarray): Target values of shape (n_samples,).
+            X (array-like): Training vectors of shape (n_samples, n_features).
+            y (array-like): Target values of shape (n_samples,).
 
         Returns:
             self (object): Returns the instance itself.
         """
         parameters = {"C": self.C, "nu": self.nu, "gamma": self.gamma,
-                      "coef0": self.coef0, "tol": self.tol, "tau": self.tau}
+                      "coef0": self.coef0, "tol": self.tol, "tau": self.tau, "cache_size": self.cache_size}
         super().fit(X, y, **parameters)
         return self
 
@@ -657,7 +675,7 @@ class NuSVR(BaseSVM):
         Predict regression values for samples in X.
 
         Args:
-            X (numpy.ndarray): Input vectors of shape (n_samples, n_features).
+            X (array-like): Input vectors of shape (n_samples, n_features).
 
         Returns:
             numpy.ndarray: Predicted values.
@@ -669,8 +687,8 @@ class NuSVR(BaseSVM):
         Return the coefficient of determination :math:`R^2` of the prediction.
 
         Args:
-            X (numpy.ndarray): Test samples of shape (n_samples, n_features).
-            y (numpy.ndarray): True values for X.
+            X (array-like): Test samples of shape (n_samples, n_features).
+            y (array-like): True values for X.
 
         Returns:
             float: :math:`R^2` of self.predict(X) wrt. y.

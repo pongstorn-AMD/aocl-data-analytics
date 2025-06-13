@@ -120,6 +120,12 @@ inline da_status register_svm_options(da_options::OptionRegistry &opts,
             tol.mcheps(1, 1), tol.mcheps_latex(1, 1)));
         opts.register_opt(oT);
 
+        oT = std::make_shared<OptionNumeric<T>>(OptionNumeric<T>(
+            "cache size", "Size of the kernel cache in MB. The default value is 200MB.",
+            0.0, da_options::lbound_t::greaterequal, rmax, da_options::ubound_t::p_inf,
+            200.0));
+        opts.register_opt(oT);
+
         /* String options */
         std::shared_ptr<OptionString> os;
 

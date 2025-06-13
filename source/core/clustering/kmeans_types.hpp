@@ -24,7 +24,7 @@
 #ifndef KMEANS_TYPES_HPP
 #define KMEANS_TYPES_HPP
 
-#define KMEANS_LLOYD_BLOCK_SIZE da_int(128)
+#define KMEANS_LLOYD_BLOCK_SIZE da_int(256)
 #define KMEANS_ELKAN_BLOCK_SIZE da_int(512)
 #define KMEANS_MACQUEEN_BLOCK_SIZE da_int(128)
 
@@ -32,6 +32,7 @@ namespace da_kmeans_types {
 
 enum kmeans_method { lloyd = 0, elkan, hartigan_wong, macqueen };
 enum kmeans_init { random_samples = 0, kmeanspp, supplied, random_partitions };
+enum kmeans_kernel { scalar = 0, avx = 2, avx2 = 5, avx512 = 11 };
 
 } // namespace da_kmeans_types
 

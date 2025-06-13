@@ -555,13 +555,13 @@ def test_error_exits_general(func, da_axis):
     Testing error exits in basic statistics functions
     """
     # Check empty array input
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError), pytest.warns(UserWarning):
         func([], axis=da_axis)
     # Check wrong input type
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         func([[1, 2, 3], [4, 'a', 6]], axis=da_axis)
     # Check 3D input
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError), pytest.warns(UserWarning):
         func([[[]]], axis=da_axis)
 
 
@@ -573,23 +573,23 @@ def test_error_exits_moment(get_data2D, da_axis, wrong_shape_input):
     Testing error exits in moment function
     """
     # Check wrong size for additional parameters
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError), pytest.warns(UserWarning):
         da_stats.moment(get_data2D['data'],
                         4,
                         axis=da_axis,
                         mean=wrong_shape_input)
     # Check empty array input
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError), pytest.warns(UserWarning):
         da_stats.moment([], k=2, axis=da_axis)
     # Check wrong input type
-    with pytest.raises(TypeError):
-        da_stats.moment([[1, 2, 3], [4, 'a', 6]], k=2, axis=da_axis)
     with pytest.raises(ValueError):
+        da_stats.moment([[1, 2, 3], [4, 'a', 6]], k=2, axis=da_axis)
+    with pytest.raises(ValueError), pytest.warns(UserWarning):
         da_stats.moment([[1, 2, 3], [4, 5, 6]], k=-1, axis=da_axis)
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError), pytest.warns(UserWarning):
         da_stats.moment([[1, 2, 3], [4, 5, 6]], k='a', axis=da_axis)
     # Check 3D input
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError), pytest.warns(UserWarning):
         da_stats.moment([[[]]], k=2, axis=da_axis)
 
 
@@ -600,19 +600,19 @@ def test_error_exits_quantile(da_axis):
     """
     X = np.array([[1, 2, 3], [4, -5, 6]])
     # Check invalid value for quantile
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError), pytest.warns(UserWarning):
         da_stats.quantile(X, 1.01, axis=da_axis)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError), pytest.warns(UserWarning):
         da_stats.quantile(X, 0.12, axis=da_axis, method='lineear')
     # Check empty array input
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError), pytest.warns(UserWarning):
         da_stats.quantile([], 0.2, axis=da_axis)
     # Check wrong input type
-    with pytest.raises(TypeError):
-        da_stats.quantile([[1, 2, 3], [4, 'a', 6]], 0.2, axis=da_axis)
     with pytest.raises(ValueError):
+        da_stats.quantile([[1, 2, 3], [4, 'a', 6]], 0.2, axis=da_axis)
+    with pytest.raises(ValueError), pytest.warns(UserWarning):
         da_stats.quantile(X, q=-1.2, axis=da_axis)
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError), pytest.warns(UserWarning):
         da_stats.quantile(X, q='a', axis=da_axis)
 
 
@@ -629,11 +629,11 @@ def test_error_exits_standardize(da_axis, wrong_shape_input):
     with pytest.raises(ValueError):
         da_stats.standardize(X, reverse=True, axis=da_axis)
     # Check wrong shift/scale parameter size
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError), pytest.warns(UserWarning):
         da_stats.standardize(X, axis=da_axis, shift=wrong_shape_input)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError), pytest.warns(UserWarning):
         da_stats.standardize(X, axis=da_axis, scale=wrong_shape_input)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError), pytest.warns(UserWarning):
         da_stats.standardize(X,
                              axis=da_axis,
                              shift=wrong_shape_input,
@@ -651,13 +651,13 @@ def test_error_exits_cov_corr(func):
     Testing error exits in covariance and correlation functions
     """
     # Check empty array input
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError), pytest.warns(UserWarning):
         func([])
     # Check wrong input type
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         func([[1, 2, 3], [4, 'a', 6]])
     # Check 3D input
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError), pytest.warns(UserWarning):
         func([[[]]])
 
 
@@ -667,5 +667,5 @@ def test_negative_geometric_mean(da_axis):
     Testing negative entry to geometric mean function
     """
     X = np.array([[1, 2, 3], [4, -5, 6]])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError), pytest.warns(UserWarning):
         da_stats.geometric_mean(X, axis=da_axis)

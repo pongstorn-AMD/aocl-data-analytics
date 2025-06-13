@@ -35,7 +35,7 @@ from aoclda.sklearn import skpatch
 
 def test_dbscan_errors():
     '''
-    Check we can catch errors in the sklearn kmeans patch
+    Check we can catch errors in the sklearn dbscan patch
     '''
     a = np.array([[1, 2, 3], [0.22, 5, 4.1], [3, 6, 1]])
 
@@ -45,7 +45,7 @@ def test_dbscan_errors():
     with pytest.warns(RuntimeWarning):
         db = DBSCAN(n_jobs=10)
 
-    db = DBSCAN(p = 2.0)
+    db = DBSCAN(p = 2.0, algorithm="kd_tree")
     db.fit(a)
 
     # Test unsupported functions

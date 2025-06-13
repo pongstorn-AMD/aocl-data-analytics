@@ -28,6 +28,7 @@
 #include "aoclda.h"
 #include "basic_handle.hpp"
 #include "da_error.hpp"
+#include "kdtree.hpp"
 #include "knn_options.hpp"
 #include "macros.h"
 
@@ -48,24 +49,29 @@ template <typename T> class knn : public basic_handle<T> {
     // Number of neighbors to be considered
     da_int n_neighbors = 5;
     // Algorithm to be used for the knn computation
-    da_int algo = da_brute_force;
+    da_int algo = da_nn_types::nn_algorithm::automatic;
+    da_int working_algo = da_nn_types::nn_algorithm::automatic;
     // Metric to be used for the distance computation
     da_int metric = da_euclidean;
     // Internal metric to be used for the distance computation
     // We want to avoid squaring the distance unless it's necessary
     da_metric internal_metric = da_sqeuclidean;
+    // Leaf size for the k-d tree algorithm
+    da_int leaf_size = 30;
     // Denote if squaring of the internal metric is required
     bool get_squares = false;
     // Minkowski parameter used for the minkowski distance conputation
     T p = 2.0;
     // Weight function used to compute the k-nearest neighbors
-    da_int weights = da_knn_uniform;
+    da_int weights = da_nn_types::nn_weights::uniform;
     // User's data
     da_int n_samples = 0, n_features = 0, ldx_train = 0;
     const T *X_train = nullptr /*n_samples-by-n_features*/;
     const da_int *y_train = nullptr /*n_samples*/;
-    //Utility pointer to column major allocated copy of user's data
+    // Utility pointer to column major allocated copy of user's data
     T *X_train_temp = nullptr;
+    // Internal k-d tree object to be initialized only when that options is requested
+    std::unique_ptr<ARCH::da_kdtree::kdtree<T>> internal_kd_tree = nullptr;
 
   public:
     std::vector<da_int> classes;
@@ -81,6 +87,12 @@ template <typename T> class knn : public basic_handle<T> {
                          [[maybe_unused]] da_int *result);
     // Set input parameters
     da_status set_params();
+    // Chose the appropriate algorithm for kNN if auto is selected
+    void set_knn_algorithm();
+    // Initialize the k-d tree
+    da_status init_kdtree();
+    // Check if the options have been updated between calls
+    da_status check_options_update();
     // Set the training data
     da_status set_training_data(da_int n_samples, da_int n_features, const T *X_train,
                                 da_int ldx_train, const da_int *y_train);
@@ -93,18 +105,28 @@ template <typename T> class knn : public basic_handle<T> {
     da_status kneighbors_compute(da_int n_queries, da_int n_features, const T *X_test,
                                  da_int ldx_test, da_int *n_ind, T *n_dist,
                                  da_int n_neigh, bool return_distance);
+    // Compute kernel for brute force algorithm
+    da_status kneighbors_compute_brute_force(da_int n_queries, da_int n_features,
+                                             const T *X_test, da_int ldx_test,
+                                             da_int *n_ind, T *n_dist, da_int n_neigh,
+                                             bool return_distance);
+    // Compute kernel for k-d tree algorithm
+    da_status kneighbors_compute_kdtree(da_int n_queries, da_int n_features,
+                                        const T *X_test, da_int ldx_test, da_int *n_ind,
+                                        T *n_dist, da_int n_neigh, bool return_distance);
     // Computational kernel that computes kneighbors using blocking on Xtest for overall algorithm.
     // In addition, it uses blocking for Xtrain only for the distance computation.
     template <da_int XTRAIN_BLOCK, da_int XTEST_BLOCK>
-    da_status kneighbors_blocked_Xtest(da_int n_queries, da_int n_features,
-                                       const T *X_test, da_int ldx_test, da_int *n_ind,
-                                       T *n_dist, da_int n_neigh, bool return_distance);
+    da_status kneighbors_brute_force_Xtest(da_int n_queries, da_int n_features,
+                                           const T *X_test, da_int ldx_test,
+                                           da_int *n_ind, T *n_dist, da_int n_neigh,
+                                           bool return_distance);
     // Compute the k-nearest neighbors and optionally the corresponding distances
     template <da_int XTRAIN_BLOCK>
-    da_status kneighbors_kernel(da_int xtrain_block_size, da_int n_blocks_train,
-                                da_int block_rem_train, da_int n_queries,
-                                da_int n_features, const T *X_test, da_int ldx_test, T *D,
-                                da_int *n_ind, T *n_dist, da_int k, bool return_distance);
+    da_status kneighbors_brute_force_Xtest_kernel(
+        da_int xtrain_block_size, da_int n_blocks_train, da_int block_rem_train,
+        da_int n_queries, da_int n_features, const T *X_test, da_int ldx_test, T *D,
+        da_int *n_ind, T *n_dist, da_int k, bool return_distance);
     // Compute probability estimates for provided test data
     da_status predict_proba(da_int n_queries, da_int n_features, const T *X_test,
                             da_int ldx_test, T *proba);

@@ -409,7 +409,7 @@ template <typename T> da_status svm<T>::compute() {
     da_std::fill(n_sv_per_class.begin(), n_sv_per_class.end(), 0);
 
     // Get the options set by user
-    T C, epsilon, nu, tolerance, coef0, tau;
+    T C, epsilon, nu, tolerance, coef0, tau, cache_size;
     da_int degree, max_iter;
     this->opts.get("C", C);
     this->opts.get("epsilon", epsilon);
@@ -419,6 +419,12 @@ template <typename T> da_status svm<T>::compute() {
     this->opts.get("tolerance", tolerance);
     this->opts.get("max_iter", max_iter);
     this->opts.get("tau", tau);
+    this->opts.get("cache size", cache_size);
+
+    /* Interpret cache_size from MB to number of columns of kernel matrix it can hold */
+    // Possibility of overflow if cache_size is too big
+    uint64_t cache_size_values = cache_size * 1024 * 1024 / sizeof(T);
+    da_int n_cols_cache = (da_int)std::round(cache_size_values / nrow);
 
     // Compute each created classifier in the order 0v1, 0v2, ..., 0v(k-1), 1v2, 1v3, ... etc.
     for (da_int i = 0; i < n_classifiers; i++) {
@@ -432,6 +438,7 @@ template <typename T> da_status svm<T>::compute() {
         classifiers[i]->tau = tau;
         classifiers[i]->gamma = gamma_temp;
         classifiers[i]->kernel_function = kernel_enum;
+        classifiers[i]->cache_col_capacity = n_cols_cache;
 
         status = classifiers[i]->compute();
 

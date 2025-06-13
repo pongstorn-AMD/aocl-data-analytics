@@ -24,7 +24,7 @@
 
 cmake_minimum_required(VERSION 3.26 FATAL_ERROR)
 
-project(AOCL-DA VERSION 5.0.1)
+project(AOCL-DA VERSION 5.1.1)
 
 set(AOCLDA_VERSION
     "${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}.${CMAKE_PROJECT_VERSION_PATCH}"
@@ -454,7 +454,7 @@ endif()
 if(NOT USE_EXISTING_DA)
   # Install examples and README files
   install(FILES README.md DESTINATION ${CMAKE_INSTALL_PREFIX})
-  install(FILES License DESTINATION ${CMAKE_INSTALL_PREFIX})
+  install(FILES License Notices DESTINATION ${CMAKE_INSTALL_PREFIX})
   install(
     DIRECTORY tests/examples/
     DESTINATION examples

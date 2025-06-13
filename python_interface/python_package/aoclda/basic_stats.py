@@ -32,7 +32,7 @@ from ._aoclda.basic_stats import (
     pybind_variance, pybind_skewness, pybind_kurtosis, pybind_moment,
     pybind_quantile, pybind_five_point_summary, pybind_standardize,
     pybind_covariance_matrix, pybind_correlation_matrix)
-
+from ._internal_utils import check_convert_data
 
 def mean(X, axis="col"):
     """
@@ -45,13 +45,15 @@ def mean(X, axis="col"):
             \\bar{x}=\\frac{1}{n}\sum_{i=1}^{n} x_i.
 
         Args:
-            X (numpy.ndarray): data matrix of shape (n_samples, n_features).
+            X (array-like): data matrix of shape (n_samples, n_features).
             axis (str, optional): axis over which means are calculated.
 
         Returns:
             numpy.ndarray. Depending on ``axis`` can have shape (n_samples, ), \
                 (n_features, ) or (1, ): Calculated means.
-        """
+    """
+    X = check_convert_data(X)
+    
     return pybind_mean(X, axis)
 
 
@@ -66,13 +68,15 @@ def harmonic_mean(X, axis="col"):
             \\bar{x}_{harm}=\\frac{n}{\sum_{i=1}^{n} \\frac{1}{x_i}}.
 
         Args:
-            X (numpy.ndarray): data matrix of shape (n_samples, n_features).
+            X (array-like): data matrix of shape (n_samples, n_features).
             axis (str, optional): axis over which means are calculated.
 
         Returns:
             numpy.ndarray. Depending on ``axis`` can have shape (n_samples, ), \
                 (n_features, ) or (1, ): Calculated harmonic means.
-        """
+    """
+    X = check_convert_data(X)
+        
     return pybind_harmonic_mean(X, axis)
 
 
@@ -88,13 +92,15 @@ def geometric_mean(X, axis="col"):
             \equiv \exp\left(\\frac{1}{n}\sum_{i=1}^n\ln x_i\\right).
 
         Args:
-            X (numpy.ndarray): data matrix of shape (n_samples, n_features).
+            X (array-like): data matrix of shape (n_samples, n_features).
             axis (str, optional): axis over which means are calculated.
 
         Returns:
             numpy.ndarray. Depending on ``axis`` can have shape (n_samples, ), \
                 (n_features, ) or (1, ): Calculated geometric means.
-        """
+    """
+    X = check_convert_data(X)
+    
     return pybind_geometric_mean(X, axis)
 
 
@@ -112,7 +118,7 @@ def variance(X, dof=0, axis="col"):
         gives an unbiased estimate of the population variance.
 
         Args:
-            X (numpy.ndarray): data matrix of shape (n_samples, n_features).
+            X (array-like): data matrix of shape (n_samples, n_features).
             dof (int, optional): number of degrees of freedom used to compute the variance
 
                 - If ``dof`` < 0 - the degrees of freedom will be set to the number \
@@ -129,7 +135,9 @@ def variance(X, dof=0, axis="col"):
         Returns:
             numpy.ndarray. Depending on ``axis`` can have shape (n_samples, ), \
                 (n_features, ) or (1, ): Calculated variances.
-        """
+    """
+    X = check_convert_data(X)
+    
     return pybind_variance(X, dof, axis)
 
 
@@ -148,13 +156,15 @@ def skewness(X, axis="col"):
             {\left[\\frac{1}{n}\sum_{i=1}^n(x_i-\\bar{x})^2\\right]^{3/2}}.
 
         Args:
-            X (numpy.ndarray): data matrix of shape (n_samples, n_features).
+            X (array-like): data matrix of shape (n_samples, n_features).
             axis (str, optional): axis over which skewnesses are calculated.
 
         Returns:
             numpy.ndarray. Depending on ``axis`` can have shape (n_samples, ), \
                 (n_features, ) or (1, ): Calculated skewnesses.
-        """
+    """
+    X = check_convert_data(X)
+    
     return pybind_skewness(X, axis)
 
 
@@ -174,13 +184,15 @@ def kurtosis(X, axis="col"):
             {\left[\\frac{1}{n}\sum_{i=1}^n(x_i-\\bar{x})^2\\right]^{2}}-3.
 
         Args:
-            X (numpy.ndarray): data matrix of shape (n_samples, n_features).
+            X (array-like): data matrix of shape (n_samples, n_features).
             axis (str, optional): axis over which kurtoses are calculated.
 
         Returns:
             numpy.ndarray. Depending on ``axis`` can have shape (n_samples, ), \
                 (n_features, ) or (1, ): Calculated kurtoses.
-        """
+    """
+    X = check_convert_data(X)
+    
     return pybind_kurtosis(X, axis)
 
 
@@ -199,15 +211,19 @@ def moment(X, k, mean=None, axis="col"):
         ``mean``) about which the moments are computed. Otherwise it will compute the means itself.
 
         Args:
-            X (numpy.ndarray): data matrix of shape (n_samples, n_features).
+            X (array-like): data matrix of shape (n_samples, n_features).
             k (int): the order of the moment to be computed.
-            mean (numpy.ndarray, optional): 1D array with precomputed means
+            mean (array-like, optional): 1D array with precomputed means
             axis (str, optional): axis over which moments are calculated.
 
         Returns:
             numpy.ndarray. Depending on ``axis`` can have shape (n_samples, ), \
             (n_features, ) or (1, ): Calculated moments.
-        """
+    """
+    X = check_convert_data(X)
+    if mean is not None:
+        mean = check_convert_data(mean)
+    
     return pybind_moment(X, k, mean, axis)
 
 
@@ -237,7 +253,7 @@ def quantile(X, q, method="linear", axis="col"):
                 to nearest order statistic and NOT nearest even order statistic.
 
         Args:
-            X (numpy.ndarray): data matrix of shape (n_samples, n_features).
+            X (array-like): data matrix of shape (n_samples, n_features).
             q (float): the quantile required, must lie in the interval [0,1].
             method (str, optional): specifies the method used to compute the quantiles.
 
@@ -281,7 +297,9 @@ def quantile(X, q, method="linear", axis="col"):
         Returns:
             numpy.ndarray. Depending on ``axis`` can have shape (n_samples, ), \
                 (n_features, ) or (1, ): Calculated quantiles.
-        """
+    """
+    X = check_convert_data(X)
+    
     return pybind_quantile(X, q, method, axis)
 
 
@@ -300,14 +318,16 @@ def five_point_summary(X, axis="col"):
             - The ``'weibull'`` definition of quantiles is used to calculate the statistics.
 
         Args:
-            X (numpy.ndarray): data matrix of shape (n_samples, n_features).
+            X (array-like): data matrix of shape (n_samples, n_features).
             axis (str, optional): axis over which summary is calculated.
 
         Returns:
             tuple of numpy.ndarray. Depending on an ``axis`` numpy.ndarray can have shape \
                 (n_samples, ), (n_features, ) or (1, ): Tuple with calculated minimum, lower \
                 hinge, median, upper hinge and maximum, respectively.
-        """
+    """
+    X = check_convert_data(X)
+    
     return pybind_five_point_summary(X, axis)
 
 
@@ -347,9 +367,9 @@ def standardize(X,
             array is F-contiguous
 
         Args:
-            X (numpy.ndarray): data matrix of shape (n_samples, n_features).
-            shift (numpy.ndarray, optional): 1D array of values used for shifting the data.
-            scale (numpy.ndarray, optional): 1D array of values used for scaling the data.
+            X (array-like): data matrix of shape (n_samples, n_features).
+            shift (array-like, optional): 1D array of values used for shifting the data.
+            scale (array-like, optional): 1D array of values used for scaling the data.
             dof (int, optional): number of degrees of freedom used to compute standard deviations
 
                 - If ``dof`` < 0 - the degrees of freedom will be set to the number \
@@ -373,7 +393,12 @@ def standardize(X,
 
         Returns:
             numpy.ndarray of shape (n_samples, n_features): Standardized matrix
-        """
+    """
+    X = check_convert_data(X)
+    if shift is not None:
+        shift = check_convert_data(shift)
+    if scale is not None:
+        scale = check_convert_data(scale)
     return pybind_standardize(X, shift, scale, dof, reverse, inplace, axis)
 
 
@@ -398,7 +423,7 @@ def covariance_matrix(X, dof=0):
         specify the number of degrees of freedom.
 
         Args:
-            X (numpy.ndarray): data matrix of shape (n_samples, n_features).
+            X (array-like): data matrix of shape (n_samples, n_features).
             dof (int, optional): number of degrees of freedom used to compute covariances
 
                 - If ``dof`` < 0 - the degrees of freedom will be set to the number of observations.
@@ -410,7 +435,9 @@ def covariance_matrix(X, dof=0):
 
         Returns:
             numpy.ndarray of shape (n_features, n_features): Covariance matrix
-        """
+    """
+    X = check_convert_data(X)
+    
     return pybind_covariance_matrix(X, dof)
 
 
@@ -432,9 +459,11 @@ def correlation_matrix(X):
         of freedom used to compute the standard deviations and covariances.
 
         Args:
-            X (numpy.ndarray): data matrix of shape (n_samples, n_features).
+            X (array-like): data matrix of shape (n_samples, n_features).
 
         Returns:
             numpy.ndarray of shape (n_features, n_features): Correlation matrix
-        """
+    """
+    X = check_convert_data(X)
+    
     return pybind_correlation_matrix(X)

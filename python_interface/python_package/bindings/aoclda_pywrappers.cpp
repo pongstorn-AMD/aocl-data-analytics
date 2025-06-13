@@ -38,6 +38,7 @@
 #include "nearest_neighbors_py.hpp"
 #include "nlls_py.hpp"
 #include "svm_py.hpp"
+#include "tools_py.hpp"
 #include "utilities_py.hpp"
 #include <iostream>
 #include <optional>
@@ -89,6 +90,14 @@ da_int py_wrapper_reshp_s(da_int n_coef, da_int n_res, const float *x, const flo
 
 PYBIND11_MODULE(_aoclda, m) {
     m.doc() = "Python wrappers for the AOCL-DA library";
+
+    /**********************************/
+    /*          Tools/utilities        */
+    /**********************************/
+    auto m_tools = m.def_submodule("tools", "Tools and utilities.");
+    m_tools.def("pybind_debug_print_context_registry", &py_debug_print_context_registry);
+    m_tools.def("pybind_debug_get", &py_da_debug_get, "key"_a);
+    m_tools.def("pybind_debug_set", &py_da_debug_set, "key"_a, "value"_a);
 
     /**********************************/
     /*         Basic statistics       */
@@ -390,11 +399,12 @@ PYBIND11_MODULE(_aoclda, m) {
     auto m_knn_classifier =
         m.def_submodule("nearest_neighbors", "k-Nearest Neighbors for classification");
     py::class_<knn_classifier, pyda_handle>(m_knn_classifier, "pybind_knn_classifier")
-        .def(py::init<da_int, std::string, std::string, std::string, std::string &,
-                      bool>(),
+        .def(py::init<da_int, std::string, std::string, da_int, std::string,
+                      std::string &, bool>(),
              py::arg("n_neighbors") = (da_int)5, py::arg("weights") = "uniform",
-             py::arg("algorithm") = "brute", py::arg("metric") = "euclidean",
-             py::arg("precision") = "double", py::arg("check_data") = false)
+             py::arg("algorithm") = "auto", py::arg("leaf_size") = (da_int)30,
+             py::arg("metric") = "euclidean", py::arg("precision") = "double",
+             py::arg("check_data") = false)
         .def("pybind_fit", &knn_classifier::fit<float>, "Fit the knn classifier", "X"_a,
              "y"_a, py::arg("p") = (float)2.0)
         .def("pybind_fit", &knn_classifier::fit<double>, "Fit the knn classifier", "X"_a,
@@ -470,10 +480,12 @@ PYBIND11_MODULE(_aoclda, m) {
              py::arg("precision") = "double", py::arg("check_data") = false)
         .def("pybind_fit", &py_svc::fit<float>, "Fit the SVC model", "X"_a, "y"_a,
              py::arg("tau") = py::none(), py::arg("C") = 1.0, py::arg("gamma") = 1,
-             py::arg("coef0") = 0.0, py::arg("tol") = 0.001)
+             py::arg("coef0") = 0.0, py::arg("tol") = 0.001,
+             py::arg("cache_size") = 200.0)
         .def("pybind_fit", &py_svc::fit<double>, "Fit the SVC model", "X"_a, "y"_a,
              py::arg("tau") = py::none(), py::arg("C") = 1.0, py::arg("gamma") = 1,
-             py::arg("coef0") = 0.0, py::arg("tol") = 0.001)
+             py::arg("coef0") = 0.0, py::arg("tol") = 0.001,
+             py::arg("cache_size") = 200.0)
         .def("pybind_predict", &py_svm::predict<float>,
              "Compute the predicted labels for the test data", "X"_a)
         .def("pybind_predict", &py_svm::predict<double>,
@@ -503,12 +515,14 @@ PYBIND11_MODULE(_aoclda, m) {
         .def(py::init<std::string, da_int, da_int, std::string, bool &>(),
              py::arg("kernel") = "rbf", py::arg("degree") = 3, py::arg("max_iter") = -1,
              py::arg("precision") = "double", py::arg("check_data") = false)
-        .def("pybind_fit", &py_svr::fit<float>, "Fit the SVC model", "X"_a, "y"_a,
+        .def("pybind_fit", &py_svr::fit<float>, "Fit the SVR model", "X"_a, "y"_a,
              py::arg("tau") = py::none(), py::arg("C") = 1.0, py::arg("epsilon") = 0.1,
-             py::arg("gamma") = 1, py::arg("coef0") = 0.0, py::arg("tol") = 0.001)
-        .def("pybind_fit", &py_svr::fit<double>, "Fit the SVC model", "X"_a, "y"_a,
+             py::arg("gamma") = 1, py::arg("coef0") = 0.0, py::arg("tol") = 0.001,
+             py::arg("cache_size") = 200.0)
+        .def("pybind_fit", &py_svr::fit<double>, "Fit the SVR model", "X"_a, "y"_a,
              py::arg("tau") = py::none(), py::arg("C") = 1.0, py::arg("epsilon") = 0.1,
-             py::arg("gamma") = 1, py::arg("coef0") = 0.0, py::arg("tol") = 0.001)
+             py::arg("gamma") = 1, py::arg("coef0") = 0.0, py::arg("tol") = 0.001,
+             py::arg("cache_size") = 200.0)
         .def("pybind_predict", &py_svm::predict<float>,
              "Compute the predicted labels for the test data", "X"_a)
         .def("pybind_predict", &py_svm::predict<double>,
@@ -531,12 +545,14 @@ PYBIND11_MODULE(_aoclda, m) {
         .def(py::init<std::string, da_int, da_int, std::string, bool &>(),
              py::arg("kernel") = "rbf", py::arg("degree") = 3, py::arg("max_iter") = -1,
              py::arg("precision") = "double", py::arg("check_data") = false)
-        .def("pybind_fit", &py_nusvc::fit<float>, "Fit the SVC model", "X"_a, "y"_a,
+        .def("pybind_fit", &py_nusvc::fit<float>, "Fit the nuSVC model", "X"_a, "y"_a,
              py::arg("tau") = py::none(), py::arg("nu") = 0.5, py::arg("gamma") = 1,
-             py::arg("coef0") = 0.0, py::arg("tol") = 0.001)
-        .def("pybind_fit", &py_nusvc::fit<double>, "Fit the SVC model", "X"_a, "y"_a,
+             py::arg("coef0") = 0.0, py::arg("tol") = 0.001,
+             py::arg("cache_size") = 200.0)
+        .def("pybind_fit", &py_nusvc::fit<double>, "Fit the nuSVC model", "X"_a, "y"_a,
              py::arg("tau") = py::none(), py::arg("nu") = 0.5, py::arg("gamma") = 1,
-             py::arg("coef0") = 0.0, py::arg("tol") = 0.001)
+             py::arg("coef0") = 0.0, py::arg("tol") = 0.001,
+             py::arg("cache_size") = 200.0)
         .def("pybind_predict", &py_svm::predict<float>,
              "Compute the predicted labels for the test data", "X"_a)
         .def("pybind_predict", &py_svm::predict<double>,
@@ -566,12 +582,14 @@ PYBIND11_MODULE(_aoclda, m) {
         .def(py::init<std::string, da_int, da_int, std::string, bool &>(),
              py::arg("kernel") = "rbf", py::arg("degree") = 3, py::arg("max_iter") = -1,
              py::arg("precision") = "double", py::arg("check_data") = false)
-        .def("pybind_fit", &py_nusvr::fit<float>, "Fit the SVC model", "X"_a, "y"_a,
+        .def("pybind_fit", &py_nusvr::fit<float>, "Fit the nuSVR model", "X"_a, "y"_a,
              py::arg("tau") = py::none(), py::arg("nu") = 0.5, py::arg("C") = 1.0,
-             py::arg("gamma") = 1, py::arg("coef0") = 0.0, py::arg("tol") = 0.001)
-        .def("pybind_fit", &py_nusvr::fit<double>, "Fit the SVC model", "X"_a, "y"_a,
+             py::arg("gamma") = 1, py::arg("coef0") = 0.0, py::arg("tol") = 0.001,
+             py::arg("cache_size") = 200.0)
+        .def("pybind_fit", &py_nusvr::fit<double>, "Fit the nuSVR model", "X"_a, "y"_a,
              py::arg("tau") = py::none(), py::arg("nu") = 0.5, py::arg("C") = 1.0,
-             py::arg("gamma") = 1, py::arg("coef0") = 0.0, py::arg("tol") = 0.001)
+             py::arg("gamma") = 1, py::arg("coef0") = 0.0, py::arg("tol") = 0.001,
+             py::arg("cache_size") = 200.0)
         .def("pybind_predict", &py_svm::predict<float>,
              "Compute the predicted labels for the test data", "X"_a)
         .def("pybind_predict", &py_svm::predict<double>,

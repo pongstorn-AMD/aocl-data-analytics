@@ -95,7 +95,12 @@ TYPED_TEST(svm_internal_test, local_smo) {
 
         svc_obj.initialisation(data.n, gradient, response, alpha);
 
-        svc_obj.local_smo(data.n, data.idx, data.kernel_data, data.local_kernel_data,
+        std::vector<TypeParam *> kernel_ptr_data(data.n);
+        for (da_int i = 0; i < data.n; i++) {
+            kernel_ptr_data[i] = data.kernel_data.data() + i * data.n;
+        }
+
+        svc_obj.local_smo(data.n, data.idx, kernel_ptr_data, data.local_kernel_data,
                           alpha, data.local_alpha, gradient, data.local_gradient,
                           response, data.local_response, I_low_p, I_up_p, I_low_n, I_up_n,
                           data.first_diff, alpha_diff, data.tol);
@@ -147,19 +152,16 @@ TYPED_TEST(svm_internal_test, local_smo) {
                 counter++;
             }
         }
-        std::vector<TypeParam> kernel_matrix_nusvc(counter * data.n);
+        std::vector<TypeParam *> kernel_matrix_ptr_nusvc(counter);
         for (da_int i = 0; i < counter; i++) {
-            for (da_int j = 0; j < data.n; j++) {
-                kernel_matrix_nusvc[i * data.n + j] =
-                    data.kernel_data[index_aux[i] * data.n + j];
-            }
+            kernel_matrix_ptr_nusvc[i] = data.kernel_data.data() + index_aux[i] * data.n;
         }
 
         nusvc_obj.update_gradient(gradient, alpha_diff, nusvc_obj.n, counter,
-                                  kernel_matrix_nusvc);
+                                  kernel_matrix_ptr_nusvc);
         ////////
 
-        nusvc_obj.local_smo(data.n, data.idx, data.kernel_data, data.local_kernel_data,
+        nusvc_obj.local_smo(data.n, data.idx, kernel_ptr_data, data.local_kernel_data,
                             alpha, data.local_alpha, gradient, data.local_gradient,
                             response, data.local_response, I_low_p, I_up_p, I_low_n,
                             I_up_n, data.first_diff, alpha_diff, data.tol);

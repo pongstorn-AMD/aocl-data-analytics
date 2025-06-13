@@ -33,6 +33,7 @@
 #include "aoclda.h"
 #include "da_cblas.hh"
 #include "da_error.hpp"
+#include "da_omp.hpp"
 #include "da_std.hpp"
 #include "macros.h"
 #include "svm.hpp"
@@ -47,12 +48,12 @@
 namespace ARCH {
 
 // This function returns whether observation is in I_up set
-template <typename T> bool is_upper(T &alpha, const T &y, T &C) {
-    return ((alpha < C && y > 0) || (alpha > 0 && y < 0));
+template <typename T> inline bool is_upper(const T &alpha, const T &y, const T &C) {
+    return (y > 0 ? alpha < C : alpha > 0);
 };
 // This function returns whether observation is in I_low set
-template <typename T> bool is_lower(T &alpha, const T &y, T &C) {
-    return ((alpha < C && y < 0) || (alpha > 0 && y > 0));
+template <typename T> inline bool is_lower(const T &alpha, const T &y, const T &C) {
+    return (y > 0 ? alpha > 0 : alpha < C);
 };
 
 /*
@@ -156,7 +157,7 @@ void csvm<T>::outer_wss(da_int &size, std::vector<da_int> &selected_ws_idx,
 
 template <typename T>
 void csvm<T>::local_smo(da_int &ws_size, std::vector<da_int> &idx,
-                        std::vector<T> &kernel_matrix,
+                        std::vector<T *> &ptr_kernel_col,
                         std::vector<T> &local_kernel_matrix, std::vector<T> &alpha,
                         std::vector<T> &local_alpha, std::vector<T> &gradient,
                         std::vector<T> &local_gradient, std::vector<T> &response,
@@ -166,17 +167,32 @@ void csvm<T>::local_smo(da_int &ws_size, std::vector<da_int> &idx,
                         [[maybe_unused]] std::vector<bool> &I_up_n, T &first_diff,
                         std::vector<T> &alpha_diff, std::optional<T> tol) {
     // Grab the values of alpha, gradient and response that are in the working set, so that we operate on smaller arrays
+    std::vector<da_int> real_indices(ws_size);
+    // First loop: Copy alpha, gradient, response, and compute flags
     for (da_int iter = 0; iter < ws_size; iter++) {
-        local_alpha[iter] = alpha[idx[iter]];
-        local_gradient[iter] = gradient[idx[iter]];
-        local_response[iter] = response[idx[iter]];
-        // Evaluate which samples from the working set are in I_up and I_low
+        const da_int idx_iter = idx[iter];
+        local_alpha[iter] = alpha[idx_iter];
+        local_gradient[iter] = gradient[idx_iter];
+        local_response[iter] = response[idx_iter];
         I_low_p[iter] = is_lower(local_alpha[iter], local_response[iter], this->C);
         I_up_p[iter] = is_upper(local_alpha[iter], local_response[iter], this->C);
-        // This can benefit from kernel matrix being stored in row-major
-        for (da_int j = 0; j < ws_size; j++) {
-            local_kernel_matrix[j * ws_size + iter] =
-                kernel_matrix[j * this->n + (idx[iter] % this->n)];
+        real_indices[iter] = idx[iter] % this->n;
+    }
+
+    // Based on experiments, using more threads does not improve performance
+    da_int n_threads = std::min(omp_get_max_threads(), 64);
+#pragma omp parallel for default(none) num_threads(n_threads)                            \
+    shared(local_kernel_matrix, ptr_kernel_col, real_indices, ws_size)
+    // Second loop: Copy only relevant kernel matrix values to local_kernel_matrix
+    // Most efficient storage: local_kernel_matrix - square matrix of size ws_size (column major)
+    //                         kernel_matrix - original kernel matrix of size n by ws_size (column major)
+    for (da_int j = 0; j < ws_size; j++) {
+        const da_int local_kernel_offset = j * ws_size;
+        T *kernel_col_j = ptr_kernel_col[j];
+#pragma omp simd
+        for (da_int iter = 0; iter < ws_size; iter++) {
+            local_kernel_matrix[local_kernel_offset + iter] =
+                *(kernel_col_j + real_indices[iter]);
         }
     }
     // i, j - indexes for update in the current iteration of SMO, domain = (0, ws_size)
@@ -202,7 +218,7 @@ void csvm<T>::local_smo(da_int &ws_size, std::vector<da_int> &idx,
             first_diff = diff;
             epsilon = std::max(this->tol, T(0.1) * diff);
         }
-        if (diff < epsilon)
+        if (diff < epsilon || i == -1 || j == -1)
             break;
         // Theory behind following formulas are in libsvm paper chapter 6 (page 28)
         alpha_i_diff = local_response[i] > 0 ? this->C - local_alpha[i] : local_alpha[i];
@@ -373,9 +389,9 @@ template class svr<double>;
 
 } // namespace da_svm
 
-template bool is_upper<double>(double &alpha, const double &y, double &C);
-template bool is_upper<float>(float &alpha, const float &y, float &C);
-template bool is_lower<double>(double &alpha, const double &y, double &C);
-template bool is_lower<float>(float &alpha, const float &y, float &C);
+template bool is_upper<double>(const double &alpha, const double &y, const double &C);
+template bool is_upper<float>(const float &alpha, const float &y, const float &C);
+template bool is_lower<double>(const double &alpha, const double &y, const double &C);
+template bool is_lower<float>(const float &alpha, const float &y, const float &C);
 
 } // namespace ARCH

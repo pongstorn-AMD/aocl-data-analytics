@@ -31,8 +31,10 @@
 #endif
 
 #include "aoclda.h"
+#include "da_cache.hpp"
 #include "da_cblas.hh"
 #include "da_error.hpp"
+#include "da_omp.hpp"
 #include "da_std.hpp"
 #include "kernel_functions.hpp"
 #include "macros.h"
@@ -117,6 +119,7 @@ template <typename T> base_svm<T>::~base_svm(){};
 template <typename T> da_status base_svm<T>::compute() {
     da_status status = da_status_success;
     // Define them in this scope since they are large matrices and do not need to be in the class scope
+    std::vector<T *> ptr_kernel_col;
     std::vector<T> kernel_matrix, local_kernel_matrix;
     std::vector<T> X_temp; // Contain relevant slices of X for kernel computation
 
@@ -168,12 +171,14 @@ template <typename T> da_status base_svm<T>::compute() {
         ldx_2 = ldx;
     }
     compute_ws_size(ws_size);
+    cache.set_size(cache_col_capacity, n);
     try {
         // Outer WSS
         ws_indicator.resize(actual_size);
         index_aux.resize(actual_size); // For nu problem also used in initialisation
         // Compute kernel
         ws_indexes.resize(ws_size);
+        ptr_kernel_col.resize(ws_size);
         kernel_matrix.resize(ws_size * n);
         X_temp.resize(ws_size * p);
         x_norm_aux.resize(n);
@@ -224,13 +229,13 @@ template <typename T> da_status base_svm<T>::compute() {
         }
         //////////
         // Compute kernel matrix using working set indexes
-        kernel_compute(ws_indexes, ws_size, X_temp, kernel_matrix);
+        kernel_compute(ws_indexes, ws_size, X_temp, kernel_matrix, ptr_kernel_col);
         // Use kernel matrix to perform local SMO (as a result alpha, alpha_diff and first_diff are updated)
-        local_smo(ws_size, ws_indexes, kernel_matrix, local_kernel_matrix, alpha,
+        local_smo(ws_size, ws_indexes, ptr_kernel_col, local_kernel_matrix, alpha,
                   local_alpha, gradient, local_gradient, response, local_response,
                   I_low_p, I_up_p, I_low_n, I_up_n, first_diff, alpha_diff, std::nullopt);
         // Global gradient update based on alpha_diff
-        update_gradient(gradient, alpha_diff, n, ws_size, kernel_matrix);
+        update_gradient(gradient, alpha_diff, n, ws_size, ptr_kernel_col);
         // Check global convergence
         // Stop when first_diff does not change for 5 iteration OR first_diff is less than tolerance
         // Additionally make sure that we perform at least 5 iterations
@@ -346,19 +351,61 @@ template <typename T> void base_svm<T>::compute_ws_size(da_int &ws_size) {
 
 template <typename T>
 void base_svm<T>::kernel_compute(std::vector<da_int> &idx, da_int &idx_size,
-                                 std::vector<T> &X_temp, std::vector<T> &kernel_matrix) {
-    // Get the relevant slices of original matrix (working set)
-    // It will be more efficient to operate on row-major order
+                                 std::vector<T> &X_temp, std::vector<T> &kernel_temp,
+                                 std::vector<T *> &ptr_kernel_col) {
+    std::vector<da_int> idx_to_compute(idx_size);
+    da_int idx_to_compute_count = 0;
+    da_int rhs_kernel_matrix = idx_size; // Position of right-hand-side of kernel matrix
+
+    // Check how many indexes are needed to compute
     for (da_int i = 0; i < idx_size; i++) {
         da_int current_idx = idx[i] % n;
-        for (da_int j = 0; j < p; j++) {
-            X_temp[i + j * idx_size] = X[current_idx + j * ldx_2];
+        T *values_ptr;
+        values_ptr = cache.get(current_idx);
+        if (values_ptr) {
+            // We need to copy values to the kernel_temp in case 0 < cache_size < ws_size
+            // In that case values_ptr will be invalidated when cache.put() is called
+            for (da_int j = 0; j < n; j++) {
+                kernel_temp[(rhs_kernel_matrix - 1) * n + j] = values_ptr[j];
+            }
+            ptr_kernel_col[i] = &kernel_temp[(rhs_kernel_matrix - 1) * n];
+            rhs_kernel_matrix--;
+        } else {
+            idx_to_compute[idx_to_compute_count] = i;
+            idx_to_compute_count++;
         }
     }
-    // Call to appropriate kernel function
-    kernel_f(column_major, n, idx_size, p, X, x_norm_aux.data(), ldx_2, X_temp.data(),
-             y_norm_aux.data(), idx_size, kernel_matrix.data(), n, gamma, degree, coef0,
-             false);
+
+    if (idx_to_compute_count > 0) {
+        // Based on experiments, using more threads does not improve performance
+        da_int n_threads = std::min(omp_get_max_threads(), 16);
+
+#pragma omp parallel for if (idx_to_compute_count > 64)                                  \
+    num_threads(n_threads) default(none)                                                 \
+    shared(idx, idx_to_compute, idx_to_compute_count, X_temp, kernel_temp, X, n, p,      \
+               ldx_2)
+        // Get the relevant slices of original matrix (working set)
+        // It will be more efficient to operate on row-major order
+        for (da_int i = 0; i < idx_to_compute_count; i++) {
+            da_int current_idx = idx[idx_to_compute[i]] % n;
+            for (da_int j = 0; j < p; j++) {
+                X_temp[i + j * idx_to_compute_count] = X[current_idx + j * ldx_2];
+            }
+        }
+
+        // Call to appropriate kernel function. Note that only idx_to_compute_count columns will be filled.
+        kernel_f(column_major, n, idx_to_compute_count, p, X, x_norm_aux.data(), ldx_2,
+                 X_temp.data(), y_norm_aux.data(), idx_to_compute_count,
+                 kernel_temp.data(), n, gamma, degree, coef0, false);
+
+        for (da_int i = 0; i < idx_to_compute_count; i++) {
+            da_int current_idx = idx_to_compute[i];
+            // Store computed values in the cache
+            cache.put(idx[current_idx] % n, &kernel_temp[i * n]);
+            // Store pointer to the column in the kernel matrix
+            ptr_kernel_col[current_idx] = &kernel_temp[i * n];
+        }
+    }
 };
 
 // Formula for global gradient update is:   gradient = gradient + sum_over_columns(alpha_diff[i] * i_th_column_kernel_matrix)
@@ -367,13 +414,13 @@ void base_svm<T>::kernel_compute(std::vector<da_int> &idx, da_int &idx_size,
 template <typename T>
 void base_svm<T>::update_gradient(std::vector<T> &gradient, std::vector<T> &alpha_diff,
                                   da_int &nrow, da_int &ncol,
-                                  std::vector<T> &kernel_matrix) {
+                                  std::vector<T *> &ptr_kernel_col) {
     const T *const_kernel;
     // Special path for regression problems since gradient is 2 * nrow
     if (mod == da_svm_model::svr || mod == da_svm_model::nusvr) {
         std::vector<T> add_to_gradient(nrow, 0);
         for (da_int i = 0; i < ncol; i++) {
-            const_kernel = kernel_matrix.data() + i * nrow;
+            const_kernel = ptr_kernel_col[i];
             da_blas::cblas_axpy(nrow, alpha_diff[i], const_kernel, 1,
                                 add_to_gradient.data(), 1);
         }
@@ -382,7 +429,7 @@ void base_svm<T>::update_gradient(std::vector<T> &gradient, std::vector<T> &alph
         }
     } else {
         for (da_int i = 0; i < ncol; i++) {
-            const_kernel = kernel_matrix.data() + i * nrow;
+            const_kernel = ptr_kernel_col[i];
             da_blas::cblas_axpy(nrow, alpha_diff[i], const_kernel, 1, gradient.data(), 1);
         }
     }
@@ -423,37 +470,49 @@ void base_svm<T>::wssj(std::vector<bool> &I_low, std::vector<T> &gradient, da_in
                        T &min_grad, da_int &j, T &max_grad, std::vector<T> &kernel_matrix,
                        T &delta, T &max_fun) {
     // Start with very large negative value to find maximum and its index
-    T max_grad_value = std::numeric_limits<T>::lowest();
-    T max_function_val = std::numeric_limits<T>::lowest();
-    da_int max_grad_idx = -1;
-    T a, b, function_val, ratio, current_gradient;
+    const T lowest = std::numeric_limits<T>::lowest();
+    max_grad = lowest;
+    max_fun = lowest;
+    j = -1;
     delta = 0;
+
+    if (i == -1)
+        return;
+
+    // Pre-compute constant value used in every iteration
+    const T K_ii = kernel_matrix[i + i * ws_size];
+
     for (da_int iter = 0; iter < ws_size; iter++) {
-        if (I_low[iter]) {
-            current_gradient = gradient[iter];
-            if (max_grad_value < current_gradient)
-                max_grad_value = current_gradient;
-            // b = y_t * gradient_t - y_i * gradient_i
-            b = current_gradient - min_grad;
-            if (b < 0)
-                continue;
-            // a = K_ii + K_tt - 2 * K_it
-            a = kernel_matrix[i + i * ws_size] + kernel_matrix[iter + iter * ws_size] -
-                2 * kernel_matrix[i + iter * ws_size];
-            if (a <= 0)
-                a = tau;
-            ratio = b / a;
-            function_val = ratio * b;
-            if (function_val > max_function_val) {
-                max_function_val = function_val;
-                max_grad_idx = iter;
-                delta = ratio;
-            }
+        if (!I_low[iter])
+            continue; // Skip non-I_low elements early
+
+        T current_gradient = gradient[iter];
+        max_grad = std::max(max_grad, current_gradient);
+
+        // Calculate gradient difference
+        T b = current_gradient - min_grad;
+        if (b < 0)
+            continue; // Skip if b is negative
+
+        // Compute kernel matrix values
+        T K_tt = kernel_matrix[iter + iter * ws_size];
+        T K_it = kernel_matrix[i + iter * ws_size];
+
+        T a = K_ii + K_tt - 2 * K_it;
+
+        // Ensure a is positive
+        if (a <= 0)
+            a = tau;
+
+        T ratio = b / a;
+        T function_val = ratio * b;
+
+        if (function_val > max_fun) {
+            max_fun = function_val;
+            j = iter;
+            delta = ratio;
         }
     }
-    max_grad = max_grad_value;
-    max_fun = max_function_val;
-    j = max_grad_idx;
 };
 
 template class base_svm<float>;

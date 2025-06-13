@@ -41,11 +41,15 @@ from sklearn.model_selection import train_test_split
                          'l1', 'cityblock', 'cosine', 'minkowski'])
 @pytest.mark.parametrize("n_neigh_constructor", [3, 5])
 @pytest.mark.parametrize("n_neigh_kneighbors", [3])
-
-def test_knn_classifier(precision, weights, metric, n_neigh_constructor, n_neigh_kneighbors):
+@pytest.mark.parametrize("algorithm", ['auto', 'kd_tree', 'brute'])
+def test_knn_classifier(precision, weights, metric, n_neigh_constructor, n_neigh_kneighbors, algorithm):
     """
     Solve a small problem
     """
+    # Skip test for unsupported parameter combinations
+    if (metric == 'cosine' or metric == 'sqeuclidean') and algorithm == 'kd_tree':
+        pytest.skip("Cosine metric is not supported with kd_tree algorithm")
+    
     # Define data arrays
     x_train = np.array([[-1, 3, 2],
                         [-2, -1, 4],
@@ -61,21 +65,22 @@ def test_knn_classifier(precision, weights, metric, n_neigh_constructor, n_neigh
                        [4, 1, -3]], dtype=precision)
 
     tol = np.sqrt(np.finfo(precision).eps)
-
+    
     p = 3.2
     # patch and import scikit-learn
     skpatch()
     from sklearn import neighbors
-    with pytest.warns(RuntimeWarning):
-        if metric=="minkowski":
-            knn_da = neighbors.KNeighborsClassifier(weights=weights,
-                                                n_neighbors=n_neigh_constructor,
-                                                metric=metric,
-                                                p=p)
-        else:
-            knn_da = neighbors.KNeighborsClassifier(weights=weights,
-                                                n_neighbors=n_neigh_constructor,
-                                                metric=metric)
+    if metric=="minkowski":
+        knn_da = neighbors.KNeighborsClassifier(weights=weights,
+                                            n_neighbors=n_neigh_constructor,
+                                            metric=metric,
+                                            p=p,
+                                            algorithm=algorithm)
+    else:
+        knn_da = neighbors.KNeighborsClassifier(weights=weights,
+                                            n_neighbors=n_neigh_constructor,
+                                            metric=metric,
+                                            algorithm=algorithm)
     knn_da.fit(x_train, y_train)
     da_dist, da_ind = knn_da.kneighbors(x_test, n_neighbors=n_neigh_kneighbors,
                                         return_distance=True)
@@ -86,13 +91,14 @@ def test_knn_classifier(precision, weights, metric, n_neigh_constructor, n_neigh
 
     # unpatch and solve the same problem with sklearn
     undo_skpatch()
+
     from sklearn import neighbors
     if metric=="minkowski":
         knn_sk = neighbors.KNeighborsClassifier(weights=weights, n_neighbors=n_neigh_constructor,
-                                                p=p, metric=metric)
+                                                p=p, metric=metric, algorithm=algorithm)
     else:
         knn_sk = neighbors.KNeighborsClassifier(weights=weights, n_neighbors=n_neigh_constructor,
-                                                metric=metric)
+                                                metric=metric, algorithm=algorithm)
 
     knn_sk.fit(x_train, y_train)
     sk_dist, sk_ind = knn_sk.kneighbors(x_test, n_neighbors=n_neigh_kneighbors,
@@ -135,21 +141,20 @@ def test_knn_errors():
     from sklearn import neighbors
 
     with pytest.raises(RuntimeError):
-        with pytest.warns(RuntimeWarning):
-            knn = neighbors.KNeighborsClassifier(n_neighbors = -1)
+        knn = neighbors.KNeighborsClassifier(n_neighbors = -1)
     with pytest.raises(ValueError):
-        with pytest.warns(RuntimeWarning):
-            knn = neighbors.KNeighborsClassifier(weights = "ones")
+        knn = neighbors.KNeighborsClassifier(weights = "ones")
     with pytest.raises(ValueError):
-        with pytest.warns(RuntimeWarning):
-            knn = neighbors.KNeighborsClassifier(metric = "nonexistent")
+        knn = neighbors.KNeighborsClassifier(metric = "nonexistent")
+    with pytest.raises(ValueError):
+        knn = neighbors.KNeighborsClassifier(algorithm = "nonexistent")
 
     x_train = np.array([[1, 1, 1], [2, 2, 2], [3, 3, 3]], dtype=np.float64)
     y_train = np.array([[1, 2, 3]], dtype=np.float64)
     x_test = np.array([[1, 2, 3], [3, 2, 1]], dtype=np.float64)
     y_test = np.array([[1, 1]], dtype=np.float64)
-    with pytest.warns(RuntimeWarning):
-        knn = neighbors.KNeighborsClassifier()
+    
+    knn = neighbors.KNeighborsClassifier()
     knn.fit(x_train, y_train)
     with pytest.raises(RuntimeError):
         knn.score(x_test, y_test)
@@ -185,6 +190,9 @@ def test_knn_classifier_large(n_samples, n_features, n_classes, precision,
                                 n_classes=n_classes,
                                 random_state=42)
 
+    x = x.astype(dtype=precision)
+    y = y.astype(dtype=precision)
+
     x_train, x_test, y_train, y_test = train_test_split(x, y,
                                                         test_size=0.5,
                                                         train_size=0.5,
@@ -199,10 +207,9 @@ def test_knn_classifier_large(n_samples, n_features, n_classes, precision,
     # patch and import scikit-learn
     skpatch()
     from sklearn import neighbors
-    with pytest.warns(RuntimeWarning):
-        knn_da = neighbors.KNeighborsClassifier(weights=weights,
-                                                n_neighbors=n_neigh_constructor,
-                                                metric=metric)
+    knn_da = neighbors.KNeighborsClassifier(weights=weights,
+                                            n_neighbors=n_neigh_constructor,
+                                            metric=metric)
     knn_da.fit(x_train, y_train)
     da_dist, da_ind = knn_da.kneighbors(x_test, n_neighbors=n_neigh_kneighbors,
                                         return_distance=True)
@@ -233,21 +240,21 @@ def test_knn_classifier_large(n_samples, n_features, n_classes, precision,
     assert da_params == sk_params
 
     # print the results if pytest is invoked with the -rA option
-    print("Indices of neighbors")
-    print("     aoclda: \n", da_ind)
-    print("    sklearn: \n", sk_ind)
-    print("Distances to neighbors")
-    print("     aoclda: \n", da_dist)
-    print("    sklearn: \n", sk_dist)
-    print("Class probabilities")
-    print("     aoclda: \n", da_predict_proba)
-    print("    sklearn: \n", sk_predict_proba)
-    print("Predicted labels")
-    print("     aoclda: \n", da_y_test)
-    print("    sklearn: \n", sk_y_test)
-    print("Parameters")
-    print("     aoclda: \n", da_params)
-    print("    sklearn: \n", sk_params)
+    # print("Indices of neighbors")
+    # print("     aoclda: \n", da_ind)
+    # print("    sklearn: \n", sk_ind)
+    # print("Distances to neighbors")
+    # print("     aoclda: \n", da_dist)
+    # print("    sklearn: \n", sk_dist)
+    # print("Class probabilities")
+    # print("     aoclda: \n", da_predict_proba)
+    # print("    sklearn: \n", sk_predict_proba)
+    # print("Predicted labels")
+    # print("     aoclda: \n", da_y_test)
+    # print("    sklearn: \n", sk_y_test)
+    # print("Parameters")
+    # print("     aoclda: \n", da_params)
+    # print("    sklearn: \n", sk_params)
 
 
 if __name__ == "__main__":

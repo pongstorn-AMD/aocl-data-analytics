@@ -27,6 +27,7 @@
 
 #include "aoclda.h"
 #include "basic_handle.hpp"
+#include "da_cache.hpp"
 #include "da_error.hpp"
 #include "macros.h"
 #include "options.hpp"
@@ -37,28 +38,28 @@
 #include <vector>
 
 /*
- * SVM handle class that contains definitions to all the user
- * facing functionalities like set_data(),
- */
+  * SVM handle class that contains definitions to all the user
+  * facing functionalities like set_data(),
+  */
 
 namespace ARCH {
 
 // This function returns whether observation is in I_up set
-template <typename T> bool is_upper(T &alpha, const T &y, T &C);
+template <typename T> bool is_upper(const T &alpha, const T &y, const T &C);
 // This function returns whether observation is in I_low set
-template <typename T> bool is_lower(T &alpha, const T &y, T &C);
+template <typename T> bool is_lower(const T &alpha, const T &y, const T &C);
 
 // This function returns whether observation is in I_up set and is a positive class
-template <typename T> bool is_upper_pos(T &alpha, const T &y, T &C);
+template <typename T> bool is_upper_pos(const T &alpha, const T &y, const T &C);
 
 // This function returns whether observation is in I_up set and is a negative class
-template <typename T> bool is_upper_neg(T &alpha, const T &y);
+template <typename T> bool is_upper_neg(const T &alpha, const T &y);
 
 // This function returns whether observation is in I_low set and is a positive class
-template <typename T> bool is_lower_pos(T &alpha, const T &y);
+template <typename T> bool is_lower_pos(const T &alpha, const T &y);
 
 // This function returns whether observation is in I_low set and is a negative class
-template <typename T> bool is_lower_neg(T &alpha, const T &y, T &C);
+template <typename T> bool is_lower_neg(const T &alpha, const T &y, const T &C);
 
 // Functions that return pointer to internal kernel function implementation
 template <typename T>
@@ -92,21 +93,21 @@ using namespace da_svm_types;
 template <typename T> class svm;
 
 /*
- * Base SVM handle class that contains members that
- * are common for all SVM models.
- *
- * This handle is inherited by all specialized svm handles.
- *
- * The inheritance scheme is as follows:
- *
- *                          SVM
- *                         /   \
- *                        /     \
- *                   C-SVM       Nu-SVM
- *                  /     \      /     \
- *                 /       \    /       \
- *              SVC       SVR Nu-SVC   Nu-SVR
- */
+  * Base SVM handle class that contains members that
+  * are common for all SVM models.
+  *
+  * This handle is inherited by all specialized svm handles.
+  *
+  * The inheritance scheme is as follows:
+  *
+  *                          SVM
+  *                         /   \
+  *                        /     \
+  *                   C-SVM       Nu-SVM
+  *                  /     \      /     \
+  *                 /       \    /       \
+  *              SVC       SVR Nu-SVC   Nu-SVR
+  */
 
 template <typename T> class base_svm {
   public:
@@ -147,6 +148,7 @@ template <typename T> class base_svm {
     T tol = 1.0e-3;
     da_int max_iter;
     da_int iter;
+    da_cache::LRUCache<T> cache;
 
     // Variable is being set at the contructors of spiecialised classes
     da_svm_model mod = svm_undefined;
@@ -164,7 +166,8 @@ template <typename T> class base_svm {
 
     // Internal working variables
     std::vector<T> alpha_diff;
-    da_int ws_size; // Size of working set
+    da_int ws_size;            // Size of working set
+    da_int cache_col_capacity; // Number of columns cache can hold
     std::vector<T> local_alpha, local_gradient, local_response;
     std::vector<T> x_norm_aux, y_norm_aux; // Work array for kernel computation
     std::vector<bool> I_low_p, I_up_p, I_low_n, I_up_n;
@@ -189,9 +192,10 @@ template <typename T> class base_svm {
 
     // General auxiliary functions
     void update_gradient(std::vector<T> &gradient, std::vector<T> &alpha_diff,
-                         da_int &nrow, da_int &ncol, std::vector<T> &kernel_matrix);
+                         da_int &nrow, da_int &ncol, std::vector<T *> &ptr_kernel_col);
     void kernel_compute(std::vector<da_int> &idx, da_int &idx_size,
-                        std::vector<T> &X_temp, std::vector<T> &kernel_matrix);
+                        std::vector<T> &X_temp, std::vector<T> &kernel_temp,
+                        std::vector<T *> &ptr_kernel_col);
     void compute_ws_size(da_int &ws_size);
     da_int maxpowtwo(da_int &n);
     void wssi(std::vector<bool> &I_up, std::vector<T> &gradient, da_int &i, T &min_grad);
@@ -206,7 +210,7 @@ template <typename T> class base_svm {
                            std::vector<bool> &selected_ws_indicator,
                            da_int &n_selected) = 0;
     virtual void local_smo(da_int &ws_size, std::vector<da_int> &idx,
-                           std::vector<T> &kernel_matrix,
+                           std::vector<T *> &ptr_kernel_col,
                            std::vector<T> &local_kernel_matrix, std::vector<T> &alpha,
                            std::vector<T> &local_alpha, std::vector<T> &gradient,
                            std::vector<T> &local_gradient, std::vector<T> &response,
@@ -284,7 +288,7 @@ template <typename T> class csvm : public base_svm<T> {
     void outer_wss(da_int &size, std::vector<da_int> &selected_ws_idx,
                    std::vector<bool> &selected_ws_indicator, da_int &n_selected);
     void local_smo(da_int &ws_size, std::vector<da_int> &idx,
-                   std::vector<T> &kernel_matrix, std::vector<T> &local_kernel_matrix,
+                   std::vector<T *> &ptr_kernel_col, std::vector<T> &local_kernel_matrix,
                    std::vector<T> &alpha, std::vector<T> &local_alpha,
                    std::vector<T> &gradient, std::vector<T> &local_gradient,
                    std::vector<T> &response, std::vector<T> &local_response,
@@ -331,7 +335,7 @@ template <typename T> class nusvm : public base_svm<T> {
     void outer_wss(da_int &size, std::vector<da_int> &selected_ws_idx,
                    std::vector<bool> &selected_ws_indicator, da_int &n_selected);
     void local_smo(da_int &ws_size, std::vector<da_int> &idx,
-                   std::vector<T> &kernel_matrix, std::vector<T> &local_kernel_matrix,
+                   std::vector<T *> &ptr_kernel_col, std::vector<T> &local_kernel_matrix,
                    std::vector<T> &alpha, std::vector<T> &local_alpha,
                    std::vector<T> &gradient, std::vector<T> &local_gradient,
                    std::vector<T> &response, std::vector<T> &local_response,

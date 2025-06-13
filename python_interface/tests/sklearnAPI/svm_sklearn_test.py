@@ -173,14 +173,18 @@ def test_double_solve(svm_problem, precision, X_train, y_train):
 
 @pytest.mark.parametrize("svm_problem, X_train, y_train", [
     ("SVC", X_train_class, y_train_class),
-    ("SVR", X_train_reg, y_train_reg),
     ("NuSVC", X_train_class, y_train_class),
+    ("SVR", X_train_reg, y_train_reg),
     ("NuSVR", X_train_reg, y_train_reg)
-], ids=["SVC", "SVR", "NuSVC", "NuSVR"])
-def test_svm_errors(svm_problem, X_train, y_train):
+], ids=["SVC", "NuSVC", "SVR", "NuSVR"])
+@pytest.mark.parametrize("precision", [np.float64,  np.float32])
+def test_svm_errors(svm_problem, X_train, y_train, precision):
     '''
     Check we can catch errors in the sklearn svm patch
     '''
+    X_train = X_train.astype(precision)
+    y_train = y_train.astype(precision)
+
     skpatch()
     SVM_module = importlib.import_module('sklearn.svm')
     SVM_model = getattr(SVM_module, svm_problem)
@@ -192,6 +196,10 @@ def test_svm_errors(svm_problem, X_train, y_train):
 
     with pytest.raises(RuntimeError):
         svm_da = SVM_model(tol=-1)
+        svm_da.fit(X_train, y_train)
+
+    with pytest.raises(RuntimeError):
+        svm_da = SVM_model(cache_size=-1.0)
         svm_da.fit(X_train, y_train)
 
     with pytest.raises(TypeError):
@@ -214,9 +222,6 @@ def test_svm_errors(svm_problem, X_train, y_train):
             svm_da.fit(X_train, y_train)
 
     # Test unsupported parameters
-    with pytest.warns(RuntimeWarning):
-        svm_da = SVM_model(cache_size=1)  # non-default cache size
-
     with pytest.warns(RuntimeWarning):
         svm_da = SVM_model(shrinking=True)
 

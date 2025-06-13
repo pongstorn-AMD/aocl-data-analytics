@@ -21,24 +21,15 @@
  *
  * ************************************************************************ */
 
-#ifndef DBSCAN_TYPES_HPP
-#define DBSCAN_TYPES_HPP
+#ifndef NEAREST_NEIGHBOR_TYPES_HPP
+#define NEAREST_NEIGHBOR_TYPES_HPP
 
-#define NOISE -1
-#define UNVISITED -2
+namespace da_nn_types {
 
-namespace da_dbscan_types {
+enum nn_algorithm { brute = 0, kd_tree, automatic };
 
-enum dbscan_algorithm {
-    brute = 0,
-    brute_serial,
-    brute_parallel,
-    ball_tree,
-    kd_tree,
-    automatic
-};
-enum dbscan_metric { euclidean, sqeuclidean, minkowski, manhattan };
+enum nn_weights { uniform = 0, distance };
 
-} // namespace da_dbscan_types
+} // namespace da_nn_types
 
-#endif // DBSCAN_TYPES_HPP
+#endif // NEAREST_NEIGHBOR_TYPES_HPP

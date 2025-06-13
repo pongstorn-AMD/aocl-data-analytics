@@ -26,11 +26,12 @@
 #include "da_error.hpp"
 #include "da_omp.hpp"
 #include "da_vector.hpp"
+#include "kdtree.hpp"
 #include "macros.h"
 #include "pairwise_distances.hpp"
 #include <vector>
 
-#define RADIUS_NEIGHBORS_BLOCK_SIZE da_int(256)
+#define RADIUS_NEIGHBORS_BLOCK_SIZE da_int(512)
 
 namespace ARCH {
 
@@ -43,9 +44,10 @@ Compute the radius neighbors: for each sample point, the indices of the samples 
 radius are returned. The brute-force method is used.
 */
 template <typename T>
-da_status radius_neighbors(da_int n_samples, da_int n_features, const T *A, da_int lda,
-                           T eps, std::vector<da_vector::da_vector<da_int>> &neighbors,
-                           da_errors::da_error_t *err) {
+da_status radius_neighbors_brute(da_int n_samples, da_int n_features, const T *A,
+                                 da_int lda, T eps, da_metric metric, T p,
+                                 std::vector<da_vector::da_vector<da_int>> &neighbors,
+                                 da_errors::da_error_t *err) {
 
     // 2D blocking scheme and threading scheme
     da_int max_block_size = std::min(RADIUS_NEIGHBORS_BLOCK_SIZE, n_samples);
@@ -57,21 +59,31 @@ da_status radius_neighbors(da_int n_samples, da_int n_features, const T *A, da_i
     da_int n_threads = ARCH::da_utils::get_n_threads_loop(n_blocks * n_blocks);
 
     std::vector<T> D, A_norms;
-    T eps_squared = eps * eps;
+
+    // For da_euclidean it is more efficient to use the squared distance
+    T eps_internal = (metric == da_euclidean) ? eps * eps : eps;
+
+    da_metric metric_internal =
+        (metric == da_euclidean || (metric == da_minkowski && p == T(2.0)))
+            ? da_sqeuclidean
+            : metric;
 
     try {
         D.resize(max_block_size * max_block_size * n_threads);
-        A_norms.resize(n_samples);
+        if (metric_internal == da_sqeuclidean)
+            A_norms.resize(n_samples);
     } catch (std::bad_alloc const &) {
         return da_error(err, da_status_memory_error, // LCOV_EXCL_LINE
                         "Memory allocation failed.");
     }
     da_int ldd = max_block_size;
 
-    // Precompute the row norms of A to speed up Euclidean distance computation
-    for (da_int j = 0; j < n_features; j++) {
-        for (da_int i = 0; i < n_samples; i++) {
-            A_norms[i] += A[i + j * lda] * A[i + j * lda];
+    if (metric_internal == da_sqeuclidean) {
+        // Precompute the row norms of A to speed up Euclidean distance computation
+        for (da_int j = 0; j < n_features; j++) {
+            for (da_int i = 0; i < n_samples; i++) {
+                A_norms[i] += A[i + j * lda] * A[i + j * lda];
+            }
         }
     }
 
@@ -82,8 +94,8 @@ da_status radius_neighbors(da_int n_samples, da_int n_features, const T *A, da_i
 
 #pragma omp parallel num_threads(n_threads) default(none)                                \
     shared(threading_error, neighbors, max_block_size, max_block_size_sq, n_samples, D,  \
-               A, A_norms, block_rem, ldd, lda, eps_squared, n_blocks, n_features,       \
-               neighbors_local)
+               A, A_norms, block_rem, ldd, lda, eps_internal, n_blocks, n_features,      \
+               neighbors_local, metric_internal, p)
     {
 
         // Thread 0 can write to neighbors; all other threads need to use neighbors_local
@@ -121,11 +133,28 @@ da_status radius_neighbors(da_int n_samples, da_int n_features, const T *A, da_i
                             bool diagonal_block = (block_i == block_j) ? true : false;
 
                             // Compute the distance matrix
-                            ARCH::euclidean_distance(
-                                da_order::column_major, block_size_dim1, block_size_dim2,
-                                n_features, &A[A_index_block_i], lda, &A[A_index_block_j],
-                                lda, &D[D_index], ldd, &A_norms[A_index_block_i], 1,
-                                &A_norms[A_index_block_j], 1, true, diagonal_block);
+                            if (metric_internal == da_sqeuclidean) {
+                                ARCH::euclidean_distance(
+                                    da_order::column_major, block_size_dim1,
+                                    block_size_dim2, n_features, &A[A_index_block_i], lda,
+                                    &A[A_index_block_j], lda, &D[D_index], ldd,
+                                    &A_norms[A_index_block_i], 1,
+                                    &A_norms[A_index_block_j], 1, true, diagonal_block);
+                            } else {
+                                // Compute the distance matrix using the specified metric
+                                const T *A_j =
+                                    diagonal_block ? nullptr : &A[A_index_block_j];
+                                da_status thd_status = ARCH::da_metrics::
+                                    pairwise_distances::pairwise_distance_kernel(
+                                        da_order::column_major, block_size_dim1,
+                                        block_size_dim2, n_features, &A[A_index_block_i],
+                                        lda, A_j, lda, &D[D_index], ldd, p,
+                                        metric_internal);
+                                if (thd_status != da_status_success) {
+#pragma omp atomic write
+                                    threading_error = 1;
+                                }
+                            }
                             // Iterate through the distance matrix and store the indices of the samples within the radius
                             for (da_int jj = 0; jj < block_size_dim2; jj++) {
                                 da_int ii_max =
@@ -135,7 +164,8 @@ da_status radius_neighbors(da_int n_samples, da_int n_features, const T *A, da_i
                                 for (da_int ii = 0; ii <= ii_max; ii++) {
                                     // i and j correspond to the actual sample point indices we are considering
                                     da_int i = A_index_block_i + ii;
-                                    if (D[D_index_offset + ii] <= eps_squared && i != j) {
+                                    if (D[D_index_offset + ii] <= eps_internal &&
+                                        i != j) {
                                         try {
                                             if (task_thread == 0) {
                                                 neighbors[i].push_back(j);
@@ -176,14 +206,47 @@ da_status radius_neighbors(da_int n_samples, da_int n_features, const T *A, da_i
     return da_status_success;
 }
 
+/*
+Compute the radius neighbors: for each sample point, the indices of the samples within a given
+radius are returned. The k-d tree method is used.
+*/
+template <typename T>
+da_status radius_neighbors_kdtree(da_int n_samples, da_int n_features, const T *A,
+                                  da_int lda, T eps, da_metric metric, T p,
+                                  da_int leaf_size,
+                                  std::vector<da_vector::da_vector<da_int>> &neighbors,
+                                  da_errors::da_error_t *err) {
+    try {
+        // Form a k-d tree from the dataset
+        auto tree = ARCH::da_kdtree::kdtree<T>(n_samples, n_features, A, lda, leaf_size);
+        return tree.radius_neighbors(n_samples, n_features, nullptr, 0, eps, metric, p,
+                                     neighbors, err);
+
+    } catch (std::bad_alloc const &) {
+        return da_error(err, da_status_memory_error, // LCOV_EXCL_LINE
+                        "Memory allocation failed.");
+    }
+}
+
 template da_status
-radius_neighbors<double>(da_int n_samples, da_int n_features, const double *A, da_int lda,
-                         double eps, std::vector<da_vector::da_vector<da_int>> &neighbors,
-                         da_errors::da_error_t *err);
+radius_neighbors_brute<double>(da_int n_samples, da_int n_features, const double *A,
+                               da_int lda, double eps, da_metric metric, double p,
+                               std::vector<da_vector::da_vector<da_int>> &neighbors,
+                               da_errors::da_error_t *err);
 template da_status
-radius_neighbors<float>(da_int n_samples, da_int n_features, const float *A, da_int lda,
-                        float eps, std::vector<da_vector::da_vector<da_int>> &neighbors,
-                        da_errors::da_error_t *err);
+radius_neighbors_brute<float>(da_int n_samples, da_int n_features, const float *A,
+                              da_int lda, float eps, da_metric metric, float p,
+                              std::vector<da_vector::da_vector<da_int>> &neighbors,
+                              da_errors::da_error_t *err);
+
+template da_status radius_neighbors_kdtree<double>(
+    da_int n_samples, da_int n_features, const double *A, da_int lda, double eps,
+    da_metric metric, double p, da_int leaf_size,
+    std::vector<da_vector::da_vector<da_int>> &neighbors, da_errors::da_error_t *err);
+template da_status radius_neighbors_kdtree<float>(
+    da_int n_samples, da_int n_features, const float *A, da_int lda, float eps,
+    da_metric metric, float p, da_int leaf_size,
+    std::vector<da_vector::da_vector<da_int>> &neighbors, da_errors::da_error_t *err);
 
 } // namespace da_radius_neighbors
 

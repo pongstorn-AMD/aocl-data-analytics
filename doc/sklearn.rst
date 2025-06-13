@@ -113,6 +113,8 @@ The following scikit-learn classes are currently available in the AOCL-DA extens
    * - ``sklearn.tree.RandomForestClassifier``
      - ``fit``, ``predict``, ``score``, ``predict_proba`` and ``predict_log_proba`` methods and various class attributes
 
+For scikit-learn classes that use ``n_jobs`` to specify the number of threads, you should instead
+use the ``OMP_NUM_THREADS`` environment variable to control the number of threads used by AOCL-DA.
 
 Note that only a subset of the AOCL-DA functionality is available in this manner, and if, after
 patching, you attempt to call class member functions which have not been implemented in AOCL-DA,

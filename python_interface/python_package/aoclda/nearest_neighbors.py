@@ -31,6 +31,7 @@ aoclda.nearest_neighbors module
 
 import numpy as np
 from ._aoclda.nearest_neighbors import pybind_knn_classifier
+from ._internal_utils import check_convert_data
 
 
 class knn_classifier():
@@ -44,8 +45,14 @@ class knn_classifier():
             Available options are 'uniform' and 'distance'. Default = 'uniform'.
 
         algorithm (str, optional): The underlying algorithm used to compute
-            the k-nearest neighbors. Only option is 'brute'.
-            This argument is included as a placeholder for more algorithms.
+            the k-nearest neighbors. Available options are 'auto', 'brute' and 'kd_tree'.
+            k-d trees are likely to be fastest for lower dimensional datasets, but 
+            cannot not be used with the cosine distance or with the Minkowski distance
+            with power less than 1.0. Default = 'auto'.
+
+        leaf_size (int, optional): The leaf size passed to the k-d tree algorithm.
+            This affects the construction of the tree and the speed of the nearest neighbor
+            queries. Default = 30.
 
         metric (str, optional): The metric used for the distance computation.
             Available metrics are 'euclidean', 'l2', 'sqeuclidean' (squared euclidean distances),
@@ -59,12 +66,12 @@ class knn_classifier():
         check_data (bool, optional): Whether to check the data for NaNs. Default = False.
     """
 
-    def __init__(self, n_neighbors=5, weights='uniform', algorithm='brute', metric='euclidean',
-                 p=2.0, check_data=False):
-        self.knn_classifier_double = pybind_knn_classifier(n_neighbors, weights, algorithm, metric,
-                                                           "double", check_data)
-        self.knn_classifier_single = pybind_knn_classifier(n_neighbors, weights, algorithm, metric,
-                                                           "single", check_data)
+    def __init__(self, n_neighbors=5, weights='uniform', algorithm='auto', leaf_size=30,
+                 metric='minkowski', p=2.0, check_data=False):
+        self.knn_classifier_double = pybind_knn_classifier(n_neighbors, weights, algorithm,
+                                                leaf_size, metric, "double", check_data)
+        self.knn_classifier_single = pybind_knn_classifier(n_neighbors, weights, algorithm,
+                                                leaf_size, metric, "single", check_data)
         self.knn_classifier = self.knn_classifier_double
         self.p = p
 
@@ -73,14 +80,16 @@ class knn_classifier():
         Fit the k-NN classifier from the training data set provided.
 
         Args:
-            X (numpy.ndarray): The feature matrix on which to fit the model.
+            X (array-like): The feature matrix on which to fit the model.
                 Its shape is (n_samples, n_features).
 
-            y (numpy.ndarray): The vector with the corresponding labels. Its shape is (n_samples).
+            y (array-like): The vector with the corresponding labels. Its shape is (n_samples).
 
         Returns:
             self (object): Returns the instance itself.
         """
+        X = check_convert_data(X)
+        y = check_convert_data(y, dtype='int32', force_float=False)
 
         if X.dtype == "float32":
             self.knn_classifier = self.knn_classifier_single
@@ -98,7 +107,7 @@ class knn_classifier():
         and optionally the corresponding distances.
 
         Args:
-            X (numpy.ndarray): The test data for which the nearest neighbors are required.
+            X (array-like): The test data for which the nearest neighbors are required.
                 Its shape is (n_queries, n_features).
 
             n_neighbors (int, optional): The number of neighbors. If this is less or equal to zero,
@@ -114,6 +123,8 @@ class knn_classifier():
             numpy.ndarray of shape (n_queries, n_neighbors): The matrix with the indices to
                 each neighbor.
         """
+        X = check_convert_data(X)
+        
         if return_distance:
             return self.knn_classifier.pybind_kneighbors(X, n_neighbors)
 
@@ -124,13 +135,14 @@ class knn_classifier():
         Compute the probability estimates for each of the available classes.
 
         Args:
-            X (numpy.ndarray): The test data for which the nearest neighbors are required.
+            X (array-like): The test data for which the nearest neighbors are required.
                 Its shape is (n_queries, n_features).
 
         Returns:
             numpy.ndarray of shape (n_queries, n_classes): The class probabilities of the test data.
             Classes are sorted in ascending order.
         """
+        X = check_convert_data(X)
         return self.knn_classifier.pybind_predict_proba(X)
 
     def predict(self, X):
@@ -138,10 +150,11 @@ class knn_classifier():
         Compute the predicted labels for the test data.
 
         Args:
-            X (numpy.ndarray): The test data for which the nearest neighbors are required.
+            X (array-like): The test data for which the nearest neighbors are required.
                 Its shape is (n_queries, n_features).
 
         Returns:
             numpy.ndarray of shape (n_queries): The predicted labels of the test data.
         """
+        X = check_convert_data(X)
         return self.knn_classifier.pybind_predict(X)

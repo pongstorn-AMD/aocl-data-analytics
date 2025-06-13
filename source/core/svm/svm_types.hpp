@@ -26,7 +26,7 @@
 #include <functional>
 
 #define SVM_MAX_KERNEL_SIZE da_int(1024)
-#define SVM_MAX_BLOCK_SIZE da_int(2048)
+#define SVM_MAX_BLOCK_SIZE da_int(258)
 
 namespace da_svm_types {
 

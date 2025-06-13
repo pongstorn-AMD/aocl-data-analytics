@@ -104,7 +104,7 @@ da_status da_switch_order_in_place_s(da_order order_X_in, da_int n_rows, da_int 
                                      float *X, da_int ldx_in, da_int ldx_out);
 /** \} */
 
-/** hiddent doc {
+/** hidden doc {
  * \brief Get information about the selected CPU architecture.
  *
  * Returns or prints the architecture currently selected to be used by the library's API.
@@ -125,5 +125,34 @@ da_status da_switch_order_in_place_s(da_order order_X_in, da_int n_rows, da_int 
  * - \ref da_status_invalid_array_dimension - provided buffer length too small, returns in \p len the minimum size.
  */
 da_status da_get_arch_info(da_int *len, char *arch, char *ns);
+
+/**
+ * @brief Sets option key-value pair in context settings.
+ *
+ * @param key   The debug option key as a null-terminated C string.
+ * @param value The debug option value as a null-terminated C string.
+ * @return da_status Returns da_status_success on success,
+ *                  da_status_invalid_input if key or value is null,
+ *                  or da_status_operation_failed on exception.
+ */
+da_status da_debug_set(const char *key, const char *value);
+
+/**
+ * @brief Gets option from key-value pair in context settings.
+ *
+ * This function looks up a hidden setting in the current context by its key.
+ * If both @p key and @p value are null, it prints all registered context settings to stdout.
+ *
+ * @param key      The key of the setting to retrieve. If null and @p value is also null, prints all settings.
+ * @param lvalue   The maximum number of characters to copy into @p value (including null terminator).
+ *                 Must be at least 100.
+ * @param value    The buffer to store the retrieved value. Must be non-null if @p key is non-null.
+ *
+ * @return da_status_success on success,
+ *         da_status_invalid_input if @p lvalue < 100,
+ *         da_status_option_not_found if the key is not found.
+ */
+da_status da_debug_get(const char *key, da_int lvalue, char *value);
+/** \} */
 
 #endif

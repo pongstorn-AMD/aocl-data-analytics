@@ -68,6 +68,20 @@ def test_dbscan_functionality(numpy_precision, numpy_order):
 
     assert not np.any(db.core_sample_indices - expected_core_sample_indices)
 
+    db2 = DBSCAN(eps=2.0, algorithm="kd_tree", metric="minkowski", min_samples=2)
+    db2.fit(a)
+
+    assert db2.n_clusters == expected_n_clusters
+
+    assert db2.n_core_samples == expected_n_core_samples
+
+    assert db2.n_samples == a.shape[0]
+
+    assert db2.n_features == a.shape[1]
+
+    assert not np.any(db2.labels - expected_labels)
+
+    assert not np.any(db2.core_sample_indices - expected_core_sample_indices)
 
 @pytest.mark.parametrize("numpy_precision", [np.float64, np.float32])
 def test_dbscan_error_exits(numpy_precision):

@@ -35,6 +35,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <unordered_map>
 
 enum dispatch_architecture {
     generic = 0, // alias to zen1
@@ -242,6 +243,21 @@ class context {
 
     void refresh() {
         check_env(); // Check AOCL_DA_ARCH and update arch if needed
+    }
+
+    // Dictionary to store hidden / debug settings
+    thread_local static std::unordered_map<std::string, std::string> hidden_settings;
+    void set_hidden_setting(const std::string &key, const std::string &value) {
+        // empty value implies delete the key
+        if (value.empty()) {
+            hidden_settings.erase(key);
+            return;
+        }
+        try {
+            hidden_settings[key] = value;
+        } catch (const std::exception &) {
+            // silently ignore...
+        }
     }
 };
 #endif //context_HPP

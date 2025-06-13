@@ -27,6 +27,7 @@
 # pylint: disable=missing-module-docstring,too-many-locals, anomalous-backslash-in-string
 from inspect import signature
 from ._aoclda.nlls import pybind_nlls
+from ._internal_utils import check_convert_data
 
 
 class nlls():
@@ -55,13 +56,13 @@ class nlls():
 
         n_res (int): Number of residuals in the model. Must be positive.
 
-        weights (float, optional): Vector containing the values of the diagonal weight matrix ``W``.
+        weights (array-like, optional): Vector containing the values of the diagonal weight matrix ``W``.
             It is expected that the values are all non-negative and normalized. Default = ``None``.
 
-        lower_bounds (float, optional): Vector of lower bounds of the coefficient vector.
+        lower_bounds (array-like, optional): Vector of lower bounds of the coefficient vector.
             Default = ``None``.
 
-        upper_bounds (float, optional): Vector of upper bounds of the coefficient vector.
+        upper_bounds (array-like, optional): Vector of upper bounds of the coefficient vector.
             Default = ``None``.
 
         order (str, optional): defines the storage scheme for the matrices.
@@ -158,6 +159,13 @@ class nlls():
     def __init__(self, n_coef, n_res, weights=None, lower_bounds=None, upper_bounds=None,
                  order='c', model='hybrid', method='galahad', glob_strategy='tr',
                  reg_power='quadratic', check_derivatives='no', verbose=0, check_data=False):
+        if lower_bounds is not None:
+            lower_bounds = check_convert_data(lower_bounds)
+        if upper_bounds is not None:
+            upper_bounds = check_convert_data(upper_bounds)
+        if weights is not None:
+            weights = check_convert_data(weights)
+        
         self.precision = "unknown"
         self.nlls_double = None
         self.nlls_single = None
@@ -207,7 +215,7 @@ class nlls():
 
         Args:
 
-            x (numpy.ndarray): initial guess to start optimizing from
+            x (array-like): initial guess to start optimizing from
 
             fun (method): function that calculates the ``n_res`` residuals.
                 This function must return the residual vector of the model evaluated
@@ -343,6 +351,7 @@ class nlls():
         Returns:
             self (object): Returns the fitted model, instance itself.
         """
+        x = check_convert_data(x)
 
         if self.precision == "unknown":
             if x.dtype == "float32":

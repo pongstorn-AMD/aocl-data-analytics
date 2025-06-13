@@ -31,6 +31,7 @@ aoclda.linear_model module
 
 import numpy as np
 from ._aoclda.linear_model import pybind_linmod
+from ._internal_utils import check_convert_data
 
 
 class linmod():
@@ -136,10 +137,14 @@ class linmod():
         Computes the chosen linear model on the feature matrix ``X`` and response vector ``y``
 
         Args:
-            X (numpy.ndarray): The feature matrix on which to compute the model.
+            X (array-like): The feature matrix on which to compute the model.
                 Its shape is (n_samples, n_features).
 
-            y (numpy.ndarray): The response vector. Its shape is (n_samples).
+            y (array-like): The response vector. Its shape is (n_samples).
+
+            x0 (array-like, optional): Initial guess for solution. Applies only to iterative solvers. \
+                The required shape depends on the problem that is being solved (look at coef attribute). \
+                If None then x0 is set to a vector of 0. Default=None.
 
             x0 (numpy.ndarray, optional): Initial guess for solution. Applies only to iterative solvers. \
                 The required shape depends on the problem that is being solved (look at coef attribute). \
@@ -148,6 +153,10 @@ class linmod():
         Returns:
             self (object): Returns the instance itself.
         """
+        X = check_convert_data(X)
+        y = check_convert_data(y)
+        if x0 is not None:
+            x0 = check_convert_data(x0)
         order = "C" if X.flags.c_contiguous else "F"
         if X.dtype == 'float32':
             self.linmod = self.linmod_single
@@ -182,13 +191,14 @@ class linmod():
         Evaluate the model on a data set ``X``.
 
         Args:
-            X (numpy.ndarray): The feature matrix to evaluate the model on. It must have \
+            X (array-like): The feature matrix to evaluate the model on. It must have \
                 n_features columns.
 
         Returns:
             numpy.ndarray of length n_samples: The prediction vector, where n_samples is \
                 the number of rows of ``X``.
         """
+        X = check_convert_data(X)
         return self.linmod.pybind_predict(X)
 
     @property

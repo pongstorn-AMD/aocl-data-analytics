@@ -15,7 +15,9 @@ tags
 '.*/[lL]icen[sc]e\.txt'
 '.*.rst'
 '.*.bib'
+'.*.md'
 '.*.jinja'
+tools/pr\.html
 doc/Doxyfile
 doc/404.md
 doc/requirements.txt
@@ -37,3 +39,5 @@ source/core/csv/char_to_num.hpp
 'python_interface/requirements\.txt'
 'python_interface/.pylintrc'
 'License'
+'Notices'
+'\./github/.*'

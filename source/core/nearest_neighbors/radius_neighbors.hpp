@@ -29,26 +29,24 @@
 
 namespace ARCH {
 
-// Declare functions needed in da_utils to avoid multiple includes of unprotected file
-namespace da_utils {
-
-void blocking_scheme(da_int n_samples, da_int block_size, da_int &n_blocks,
-                     da_int &block_rem);
-
-da_int get_n_threads_loop(da_int loop_size);
-
-} // namespace da_utils
-
 namespace da_radius_neighbors {
 
 /*
 Compute the radius neighbors: for each sample point, the indices of the samples within a given
-radius are returned. The brute-force method is used.
+radius are returned.
 */
 template <typename T>
-da_status radius_neighbors(da_int n_samples, da_int n_features, const T *A, da_int lda,
-                           T eps, std::vector<da_vector::da_vector<da_int>> &neighbors,
-                           da_errors::da_error_t *err);
+da_status radius_neighbors_brute(da_int n_samples, da_int n_features, const T *A,
+                                 da_int lda, T eps, da_metric metric, T p,
+                                 std::vector<da_vector::da_vector<da_int>> &neighbors,
+                                 da_errors::da_error_t *err);
+
+template <typename T>
+da_status radius_neighbors_kdtree(da_int n_samples, da_int n_features, const T *A,
+                                  da_int lda, T eps, da_metric metric, T p,
+                                  da_int leaf_size,
+                                  std::vector<da_vector::da_vector<da_int>> &neighbors,
+                                  da_errors::da_error_t *err);
 
 } // namespace da_radius_neighbors
 

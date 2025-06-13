@@ -33,6 +33,7 @@
 #include "aoclda.h"
 #include "da_cblas.hh"
 #include "da_error.hpp"
+#include "da_omp.hpp"
 #include "da_std.hpp"
 #include "macros.h"
 #include "svm.hpp"
@@ -48,22 +49,22 @@
 namespace ARCH {
 
 // This function returns whether observation is in I_up set and is a positive class
-template <typename T> bool is_upper_pos(T &alpha, const T &y, T &C) {
+template <typename T> inline bool is_upper_pos(const T &alpha, const T &y, const T &C) {
     return (alpha < C && y > 0);
 };
 
 // This function returns whether observation is in I_up set and is a negative class
-template <typename T> bool is_upper_neg(T &alpha, const T &y) {
+template <typename T> inline bool is_upper_neg(const T &alpha, const T &y) {
     return (alpha > 0 && y < 0);
 };
 
 // This function returns whether observation is in I_low set and is a positive class
-template <typename T> bool is_lower_pos(T &alpha, const T &y) {
+template <typename T> inline bool is_lower_pos(const T &alpha, const T &y) {
     return (alpha > 0 && y > 0);
 };
 
 // This function returns whether observation is in I_low set and is a negative class
-template <typename T> bool is_lower_neg(T &alpha, const T &y, T &C) {
+template <typename T> inline bool is_lower_neg(const T &alpha, const T &y, const T &C) {
     return (alpha < C && y < 0);
 };
 
@@ -212,7 +213,7 @@ void nusvm<T>::outer_wss(da_int &size, std::vector<da_int> &selected_ws_idx,
 
 template <typename T>
 void nusvm<T>::local_smo(da_int &ws_size, std::vector<da_int> &idx,
-                         std::vector<T> &kernel_matrix,
+                         std::vector<T *> &ptr_kernel_col,
                          std::vector<T> &local_kernel_matrix, std::vector<T> &alpha,
                          std::vector<T> &local_alpha, std::vector<T> &gradient,
                          std::vector<T> &local_gradient, std::vector<T> &response,
@@ -220,18 +221,35 @@ void nusvm<T>::local_smo(da_int &ws_size, std::vector<da_int> &idx,
                          std::vector<bool> &I_up_p, std::vector<bool> &I_low_n,
                          std::vector<bool> &I_up_n, T &first_diff,
                          std::vector<T> &alpha_diff, std::optional<T> tol) {
+    // Grab the values of alpha, gradient and response that are in the working set, so that we operate on smaller arrays
+    std::vector<da_int> real_indices(ws_size);
+    // First loop: Copy alpha, gradient, response, and compute flags
     for (da_int iter = 0; iter < ws_size; iter++) {
-        local_alpha[iter] = alpha[idx[iter]];
-        local_gradient[iter] = gradient[idx[iter]];
-        local_response[iter] = response[idx[iter]];
+        const da_int idx_iter = idx[iter];
+        local_alpha[iter] = alpha[idx_iter];
+        local_gradient[iter] = gradient[idx_iter];
+        local_response[iter] = response[idx_iter];
         I_low_p[iter] = is_lower_pos(local_alpha[iter], local_response[iter]);
         I_up_p[iter] = is_upper_pos(local_alpha[iter], local_response[iter], this->C);
         I_low_n[iter] = is_lower_neg(local_alpha[iter], local_response[iter], this->C);
         I_up_n[iter] = is_upper_neg(local_alpha[iter], local_response[iter]);
-        // This can benefit from kernel matrix being stored in row-major
-        for (da_int j = 0; j < ws_size; j++) {
-            local_kernel_matrix[j * ws_size + iter] =
-                kernel_matrix[j * this->n + (idx[iter] % this->n)];
+        real_indices[iter] = idx[iter] % this->n;
+    }
+
+    // Based on experiments, using more threads does not improve performance
+    da_int n_threads = std::min(omp_get_max_threads(), 64);
+#pragma omp parallel for default(none) num_threads(n_threads)                            \
+    shared(local_kernel_matrix, ptr_kernel_col, real_indices, ws_size)
+    // Second loop: Copy only relevant kernel matrix values to local_kernel_matrix
+    // Most efficient storage: local_kernel_matrix - square matrix of size ws_size (column major)
+    //                         kernel_matrix - original kernel matrix of size n by ws_size (column major)
+    for (da_int j = 0; j < ws_size; j++) {
+        const da_int local_kernel_offset = j * ws_size;
+        T *kernel_col_j = ptr_kernel_col[j];
+#pragma omp simd
+        for (da_int iter = 0; iter < ws_size; iter++) {
+            local_kernel_matrix[local_kernel_offset + iter] =
+                *(kernel_col_j + real_indices[iter]);
         }
     }
     // i, j - indexes for update in the current iteration of SMO, domain = (0, ws_size)
@@ -271,6 +289,8 @@ void nusvm<T>::local_smo(da_int &ws_size, std::vector<da_int> &idx,
             j = j_n;
             delta = delta_n;
         }
+        if (i == -1 || j == -1)
+            break;
         alpha_i_diff = local_response[i] > 0 ? this->C - local_alpha[i] : local_alpha[i];
         alpha_j_diff = std::min(
             local_response[j] > 0 ? local_alpha[j] : this->C - local_alpha[j], delta);
@@ -372,7 +392,9 @@ da_status nusvm<T>::initialise_gradient(std::vector<T> &alpha_diff, da_int count
         }
 
         std::vector<T> kernel_matrix, X_temp;
+        std::vector<T *> ptr_kernel_col;
         try {
+            ptr_kernel_col.resize(current_block_size);
             kernel_matrix.resize(this->n * current_block_size);
             X_temp.resize(current_block_size * this->p);
             if (current_block_size > this->ws_size) {
@@ -394,9 +416,10 @@ da_status nusvm<T>::initialise_gradient(std::vector<T> &alpha_diff, da_int count
                                       alpha_diff.end());
         }
 
-        this->kernel_compute(current_idx, current_block_size, X_temp, kernel_matrix);
+        this->kernel_compute(current_idx, current_block_size, X_temp, kernel_matrix,
+                             ptr_kernel_col);
         this->update_gradient(gradient, current_alpha_diff, this->n, current_block_size,
-                              kernel_matrix);
+                              ptr_kernel_col);
         if (this->mod == da_svm_model::nusvr) {
             // alpha_diff is just of size n (when technically it should be 2n) but since
             // second half of alpha_diff is just first half negated, we can just multiply by -1
@@ -404,7 +427,7 @@ da_status nusvm<T>::initialise_gradient(std::vector<T> &alpha_diff, da_int count
             std::for_each(current_alpha_diff.begin(), current_alpha_diff.end(),
                           [](T &value) { value = -value; });
             this->update_gradient(gradient, current_alpha_diff, this->n,
-                                  current_block_size, kernel_matrix);
+                                  current_block_size, ptr_kernel_col);
         }
     }
     return da_status_success;
@@ -575,13 +598,13 @@ template class nusvr<double>;
 
 } // namespace da_svm
 
-template bool is_upper_pos<double>(double &alpha, const double &y, double &C);
-template bool is_upper_pos<float>(float &alpha, const float &y, float &C);
-template bool is_lower_pos<double>(double &alpha, const double &y);
-template bool is_lower_pos<float>(float &alpha, const float &y);
-template bool is_upper_neg<double>(double &alpha, const double &y);
-template bool is_upper_neg<float>(float &alpha, const float &y);
-template bool is_lower_neg<double>(double &alpha, const double &y, double &C);
-template bool is_lower_neg<float>(float &alpha, const float &y, float &C);
+template bool is_upper_pos<double>(const double &alpha, const double &y, const double &C);
+template bool is_upper_pos<float>(const float &alpha, const float &y, const float &C);
+template bool is_lower_pos<double>(const double &alpha, const double &y);
+template bool is_lower_pos<float>(const float &alpha, const float &y);
+template bool is_upper_neg<double>(const double &alpha, const double &y);
+template bool is_upper_neg<float>(const float &alpha, const float &y);
+template bool is_lower_neg<double>(const double &alpha, const double &y, const double &C);
+template bool is_lower_neg<float>(const float &alpha, const float &y, const float &C);
 
 } // namespace ARCH

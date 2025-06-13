@@ -339,10 +339,12 @@ def test_warm_start_logreg(no_fortran, numpy_order):
     skpatch()
     from sklearn.linear_model import LogisticRegression
     model = LogisticRegression(tol=1e-10, warm_start=True)
-    model.fit(X, y)
+    with pytest.warns(UserWarning):
+        model.fit(X, y)
     coefs_first = model.coef_
     n_iter_first = model.n_iter_
-    model.fit(X, y)
+    with pytest.warns(UserWarning):
+        model.fit(X, y)
     coefs_second = model.coef_
     n_iter_second = model.n_iter_
     # Currently when we use warm model, we do one iteration regardless, hence solution is slightly different

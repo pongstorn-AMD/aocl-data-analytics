@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (C) 2024-2025 Advanced Micro Devices, Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
 # are permitted provided that the following conditions are met:
@@ -28,6 +28,7 @@ aoclda.factorization module
 """
 
 from ._aoclda.factorization import pybind_PCA
+from ._internal_utils import check_convert_data
 
 class PCA():
     """
@@ -152,12 +153,14 @@ class PCA():
         Computes the principal component analysis on the supplied data matrix.
 
         Args:
-            A (numpy.ndarray): The data matrix with which to compute the PCA. It has shape
+            A (array-like): The data matrix with which to compute the PCA. It has shape
               (n_samples, n_features).
 
         Returns:
             self (object): Returns the instance itself.
         """
+        A = check_convert_data(A)
+        
         if A.dtype == "float32":
             self.pca = self.pca_single
             self.pca_double = None
@@ -175,13 +178,14 @@ class PCA():
         matrix to ``X``, then projecting ``X`` into the previously computed principal components.
 
         Args:
-            X (numpy.ndarray): The data matrix to be transformed. It has shape
+            X (array-like): The data matrix to be transformed. It has shape
               (m_samples, m_features). Note that ``m_features`` must match ``n_features``,
               the number of features in the data matrix originally supplied to ``pca.fit``.
 
         Returns:
             numpy.ndarray of shape (m_samples, n_components): The transformed matrix.
         """
+        X = check_convert_data(X)
         return self.pca.pybind_transform(X)
 
     def inverse_transform(self, Y):
@@ -194,11 +198,12 @@ class PCA():
         used on the original data matrix.
 
         Args:
-            Y (numpy.ndarray): The data matrix to be transformed. It has shape
+            Y (array-like): The data matrix to be transformed. It has shape
               (k_samples, k_features). Note that ``k_features`` must match ``n_components``,
               the number of principal components computed by ``pca.fit``.
 
         Returns:
             numpy.ndarray of shape (k_samples, n_features): The transformed matrix.
         """
+        Y = check_convert_data(Y)
         return self.pca.pybind_inverse_transform(Y)
