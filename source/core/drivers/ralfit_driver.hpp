@@ -409,18 +409,25 @@ da_status copy_options_to_ralfit(da_options::OptionRegistry &opts,
 
 // Entry point to RALFit (via ral_nlls.h)
 template <typename T>
-da_status ralfit_driver(da_options::OptionRegistry &opts, da_int nvar, da_int nres, T *x,
+da_status ralfit_driver(da_options::OptionRegistry &opts, [[maybe_unused]] da_int nvar,
+                        [[maybe_unused]] da_int nres, [[maybe_unused]] T *x,
                         resfun_t<T> eval_r, resgrd_t<T> eval_J, reshes_t<T> eval_HF,
-                        reshp_t<T> eval_HP, T *lower_bounds, T *upper_bounds, T *weights,
-                        void *usrdata, std::vector<T> &info, da_errors::da_error_t &err) {
+                        reshp_t<T> eval_HP, [[maybe_unused]] T *lower_bounds,
+                        [[maybe_unused]] T *upper_bounds, [[maybe_unused]] T *weights,
+                        [[maybe_unused]] void *usrdata, std::vector<T> &info,
+                        da_errors::da_error_t &err) {
     ral_nlls_options_t<T> options;
     ral_nlls_inform_t<T> inform;
 
     // Initialize option values
     if constexpr (std::is_same_v<T, double>) {
+#ifndef NO_FORTRAN
         ral_nlls_default_options_d(&options);
+#endif
     } else {
+#ifndef NO_FORTRAN
         ral_nlls_default_options_s(&options);
+#endif
     }
 
     if (copy_options_to_ralfit<T>(opts, options, err, bool(eval_HF)) != da_status_success)
@@ -433,9 +440,13 @@ da_status ralfit_driver(da_options::OptionRegistry &opts, da_int nvar, da_int nr
 
     // init_workspace allocates and links together workspace with inner_workspace
     if constexpr (std::is_same_v<T, double>) {
+#ifndef NO_FORTRAN
         ral_nlls_init_workspace_d(&workspace, &inner_workspace);
+#endif
     } else {
+#ifndef NO_FORTRAN
         ral_nlls_init_workspace_s(&workspace, &inner_workspace);
+#endif
     }
 
     // Get address of eval_r
@@ -477,17 +488,21 @@ da_status ralfit_driver(da_options::OptionRegistry &opts, da_int nvar, da_int nr
     }
 
     if constexpr (std::is_same_v<T, double>) {
+#ifndef NO_FORTRAN
         nlls_solve_d(nvar, nres, x, ral_nlls_eval_r, ral_nlls_eval_J, ral_nlls_eval_HF,
                      usrdata, &options, &inform, weights, ral_nlls_eval_HP, lower_bounds,
                      upper_bounds);
         ral_nlls_free_workspace_d(&workspace);
         ral_nlls_free_workspace_d(&inner_workspace);
+#endif
     } else {
+#ifndef NO_FORTRAN
         nlls_solve_s(nvar, nres, x, ral_nlls_eval_r, ral_nlls_eval_J, ral_nlls_eval_HF,
                      usrdata, &options, &inform, weights, ral_nlls_eval_HP, lower_bounds,
                      upper_bounds);
         ral_nlls_free_workspace_s(&workspace);
         ral_nlls_free_workspace_s(&inner_workspace);
+#endif
     }
 
     copy_inform(inform, info);

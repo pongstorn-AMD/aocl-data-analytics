@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (C) 2024-2025 Advanced Micro Devices, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
@@ -51,7 +51,7 @@ typedef enum da_axis_ da_axis;
  * \brief Defines the method used to compute quantiles in \ref da_quantile_s and \ref da_quantile_d.
  *
  * @rst
- * The available quantile types correspond to the 9 different quantile types commonly used (see :cite:t:`hyfa96` for further details). It is recommended to use type 6 or type 7 as a default.
+ * The available quantile types correspond to the 9 different quantile types commonly used (see cite:t:`da_hyfa96` for further details). It is recommended to use type 6 or type 7 as a default.
  * @endrst
  *
  * Notes about the available types:
@@ -197,7 +197,7 @@ da_status da_variance_s(da_order order, da_axis axis, da_int n_rows, da_int n_co
  * \brief Arithmetic mean, variance and skewness of a data matrix.
  *
  * @rst
- * The skewness is computed as the Fischer-Pearson coefficient of skewness (that is, with the central moments scaled by the number of observations, see :cite:t:`kozw2000`).
+ * The skewness is computed as the Fischer-Pearson coefficient of skewness (that is, with the central moments scaled by the number of observations, see cite:t:`da_kozw2000`).
  * @endrst
  * Thus, for a dataset  @f$\{x_1, \dots, x_n\}@f$, the skewness, @f$g_1@f$, is defined as
  * \f[
@@ -232,7 +232,7 @@ da_status da_skewness_s(da_order order, da_axis axis, da_int n_rows, da_int n_co
  * \brief Arithmetic mean, variance and kurtosis of a data matrix.
  *
  * @rst
- * The kurtosis is computed using Fischer's coefficient of excess kurtosis (that is, with the central moments scaled by the number of observations and 3 subtracted to ensure normally distributed data gives a value of 0, see :cite:t:`kozw2000`).
+ * The kurtosis is computed using Fischer's coefficient of excess kurtosis (that is, with the central moments scaled by the number of observations and 3 subtracted to ensure normally distributed data gives a value of 0, see cite:t:`da_kozw2000`).
  * @endrst
  * Thus, for a dataset  @f$\{x_1, \dots, x_n\}@f$, the kurtosis, @f$g_2@f$, is defined as
  * \f[

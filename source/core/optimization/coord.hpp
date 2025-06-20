@@ -249,6 +249,10 @@ template <typename T> class coord_slv {
     size_t flags{0};
     // Infinity-norm of the current beta (coefficient vector)
     T inormbeta{T(0)};
+    // tolerance to declare a step small
+    T tol{T(0)};
+    // tolerance to declare optimality
+    T optim{T(0)}; // this is only checked if step < tol
 
     // Assumes all inputs are valid
     coord_slv(size_t restart, size_t skipmin, size_t skipmax_reset, T skiptol)
@@ -289,9 +293,9 @@ template <typename T> class coord_slv {
 
 template <typename T>
 da_status coord_rcomm(da_int n, std::vector<T> &x, constraints::bound_constr<T> &bc,
-                      T factr, T tol, coord::solver_tasks &itask, da_int &k, T &newxk,
-                      da_int &iter, T &inorm, T &optim, da_int &action,
-                      da_errors::da_error_t &err, coord_slv<T> &w);
+                      T optim, T tol, coord::solver_tasks &itask, da_int &k, T &newxk,
+                      da_int &iter, T &inorm, da_int &action, da_errors::da_error_t &err,
+                      coord_slv<T> &w);
 
 /** Coordinate Descent Method - Forward Communication <templated>
  *
@@ -328,11 +332,12 @@ da_status coord(da_options::OptionRegistry &opts, da_int n, std::vector<T> &x,
         return da_error( // LCOV_EXCL_LINE
             &err, da_status_internal_error,
             "expected option not found: <coord convergence tol>.");
-    T factr;
-    if (opts.get("coord progress factor", factr))
+    T optim;
+    if (opts.get("coord optimality tol", optim))
         return da_error( // LCOV_EXCL_LINE
             &err, da_status_internal_error,
-            "expected option not found: <coord progress factor>.");
+            "expected option not found: <coord optimality tol>.");
+    const T optim_usr{optim}; // copy
     T maxtime;
     if (opts.get("time limit", maxtime))
         return da_error(&err, da_status_internal_error, // LCOV_EXCL_LINE
@@ -426,16 +431,22 @@ da_status coord(da_options::OptionRegistry &opts, da_int n, std::vector<T> &x,
         return status; // Error message already loaded
 
     da_int hdr{0}, fcnt{0}, lowrk{0}, iter{0}, k{0}, action{0}, chkcnt{0};
-    T *f = &info[da_optim_info_t::info_objective];
-    T *time = &info[da_optim_info_t::info_time];
+    da_int chk_iter{-1}; // save the iteration number when stepchk was called
+    T *f = &info[da_linmod_info_t::linmod_info_objective];
+    T *time = &info[da_linmod_info_t::linmod_info_time];
     T newxk{T(0)};
     T inorm{std::numeric_limits<T>::infinity()};
     *f = std::numeric_limits<T>::infinity();
-    T optim{T(-1)}; // Optimality condition measure (duality gap, KKT, ...)
     da_int cbflag{0};
-    bool cbstop = false;
+    bool cbstop{false};
+    bool callmon{false};
+    bool timeout{false};
+    bool eval{false};
 
     solver_tasks itask = START;
+    // for itask = START
+    // tol and optim have to specify the requested tolerances, these
+    // are saved into the workspace of the solver
     auto clock = std::chrono::system_clock::now();
     const size_t coutprec = std::cout.precision();
 
@@ -447,14 +458,16 @@ da_status coord(da_options::OptionRegistry &opts, da_int n, std::vector<T> &x,
     }
 
     while (itask == NEWX || itask == START || itask == EVAL || itask == OPTIMCHK) {
-        coord_rcomm<T>(n, x, bc, factr, tol, itask, k, newxk, iter, inorm, optim, action,
-                       err, w);
+        coord_rcomm<T>(n, x, bc, optim, tol, itask, k, newxk, iter, inorm, action, err,
+                       w);
 
         switch (itask) {
         case EVAL: // Compute new iterate for x[k]
             if (iter == 0) {
-                info[da_optim_info_t::info_inorm_init] =
-                    std::max(info[da_optim_info_t::info_inorm_init], std::abs(x[k]));
+                // reset the optimality measure
+                optim = std::numeric_limits<T>::infinity();
+                info[da_linmod_info_t::linmod_info_inorm_init] = std::max(
+                    info[da_linmod_info_t::linmod_info_inorm_init], std::abs(x[k]));
             }
             if (action > 0)
                 fcnt++;
@@ -476,7 +489,7 @@ da_status coord(da_options::OptionRegistry &opts, da_int n, std::vector<T> &x,
                 da_int reset = w.flags & 2U;      // Tolerance check requested restart
                 da_int reqskip = w.flags & 4U;    // In skip regime
                 da_int exhaustion = w.flags & 8U; // Search-space exhausted
-                da_int optim = w.flags & 16U;     // Optimality condition not met
+                da_int optimf = w.flags & 16U;    // Optimality condition not met
                 da_int activate = w.flags & 32U;  // Movement was detected
                 flagss += (reqskip) ? "S" : "";
                 flagss += (action < 1 ? "C" : "E");
@@ -484,7 +497,7 @@ da_status coord(da_options::OptionRegistry &opts, da_int n, std::vector<T> &x,
                 flagss += (reset) ? "T" : "";
                 flagss += (exhaustion) ? "!" : "";
                 flagss += (cbflag) ? "X" : "";
-                flagss += (optim) ? "D" : "";
+                flagss += (optimf) ? "D" : "";
                 flagss += (activate) ? "A" : "";
 
                 /*
@@ -554,20 +567,48 @@ da_status coord(da_options::OptionRegistry &opts, da_int n, std::vector<T> &x,
             break;
         case OPTIMCHK:
             ++chkcnt;
+            chk_iter = iter;
             cbflag = stepchk(n, &x[0], usrdata, &optim);
-            if (cbflag) {
-                status = da_error(
-                    &err, da_status_numerical_difficulties,
-                    "Optimality check call-back returned error at current iterate.");
-                cbstop = true;
-            }
+            cbstop = cbflag != 0;
             break;
         case NEWX:
         case STOP: // Copy and print for the last time
-            if ((itask == STOP || prnlvl > 1) && (!cbstop)) {
-                // Get the objective value of the scaled problem.
-                cbflag = stepfun(n, &x[0], &newxk, k, f, usrdata, action, w.kdiff);
+            if (mon != 0) {
+                callmon = (iter % mon == 0);
             }
+            *time = std::chrono::duration<T>(std::chrono::system_clock::now() - clock)
+                        .count();
+            if (maxtime > 0) {
+                timeout = (*time > maxtime);
+            }
+            // Check to see if call-backs need to be evalueated.
+            // When cbstop is true, f can still be evaluated, if
+            // stepchk sets cbstop=true then it also sets chk_iter=iter and
+            // stepchk is not called twice.
+            eval = callmon || iter >= maxit || timeout || itask == STOP || cbstop;
+            if (eval || prnlvl > 1) {
+                // Get the objective value of the scaled problem.
+                // it expects f is valid. Calls to update f are not counted.
+                stepfun(n, &x[0], &newxk, k, f, usrdata, action, w.kdiff);
+            }
+
+            // Copy rest of metrics to info before printing
+            info[da_linmod_info_t::linmod_info_nevalf] = (T)fcnt;
+            info[da_linmod_info_t::linmod_info_ncheap] = (T)lowrk;
+            info[da_linmod_info_t::linmod_info_inorm] = inorm;
+            info[da_linmod_info_t::linmod_info_iter] = (T)iter;
+            // make sure to return the correct optimatility measure
+            // optim is NOT evaluated at every iteration (if prnlvl > 1)
+            // it would print the "last known value" of optim
+            if (eval && chk_iter < iter) {
+                ++chkcnt;
+                chk_iter = iter;
+                cbflag = stepchk(n, &x[0], usrdata, &optim);
+                cbstop = cbflag != 0;
+            }
+            info[da_linmod_info_t::linmod_info_optim] = optim;
+            info[da_linmod_info_t::linmod_info_optimcnt] = (T)chkcnt;
+
             if (prnlvl > 1) {
                 if (hdr == 0 || prnlvl >= 4) {
                     hdr = HDRCNT;
@@ -589,7 +630,7 @@ da_status coord(da_options::OptionRegistry &opts, da_int n, std::vector<T> &x,
                           << std::setw(9) << inorm << std::setw(12) << fcnt
                           << std::setw(12) << lowrk;
                 if (optim < std::numeric_limits<T>::infinity()) {
-                    std::cout << std::setw(1) << "" << std::setw(9) << optim << std::endl;
+                    std::cout << std::setw(1) << "" << std::setw(9) << optim;
                 }
                 std::cout << std::endl;
                 std::cout.precision(coutprec);
@@ -600,16 +641,6 @@ da_status coord(da_options::OptionRegistry &opts, da_int n, std::vector<T> &x,
                     }
                 }
             }
-
-            // Copy all metrics to info
-            info[da_optim_info_t::info_nevalf] = (T)fcnt;
-            info[da_optim_info_t::info_ncheap] = (T)lowrk;
-            info[da_optim_info_t::info_inorm] = inorm;
-            info[da_optim_info_t::info_iter] = (T)iter;
-            info[da_optim_info_t::info_optim] = optim;
-            info[da_optim_info_t::info_optimcnt] = (T)chkcnt;
-            *time = std::chrono::duration<T>(std::chrono::system_clock::now() - clock)
-                        .count();
 
             if (cbstop) {
                 if (iter == 1)
@@ -622,6 +653,7 @@ da_status coord(da_options::OptionRegistry &opts, da_int n, std::vector<T> &x,
                                      "One or more coordinate steps could not be computed "
                                      "by the callback.");
                 } // Otherwise status already filled.
+                itask = STOP;
                 break;
             }
 
@@ -636,28 +668,24 @@ da_status coord(da_options::OptionRegistry &opts, da_int n, std::vector<T> &x,
                 break;
             }
 
-            if (mon != 0) {
-                if (iter % mon == 0) {
-                    // Call monitor
-                    if (monit(n, &x[0], nullptr, &info[0], usrdata) != 0) {
-                        // User request to stop
-                        itask = STOP;
-                        status = da_warn(&err, da_status_optimization_usrstop,
-                                         "User requested to stop optimization process.");
-                        break;
-                    }
+            if (callmon) {
+                // Call monitor
+                if (monit(n, &x[0], nullptr, &info[0], usrdata) != 0) {
+                    // User request to stop
+                    itask = STOP;
+                    status = da_warn(&err, da_status_optimization_usrstop,
+                                     "User requested to stop optimization process.");
+                    break;
                 }
             }
 
-            if (maxtime > 0) {
-                if (*time > maxtime) {
-                    // Run out of time
-                    itask = STOP;
-                    status = da_warn(
-                        &err, da_status_maxtime,
-                        "Time limit reached without converging to set tolerance.");
-                    break;
-                }
+            if (timeout) {
+                // Run out of time
+                itask = STOP;
+                status =
+                    da_warn(&err, da_status_maxtime,
+                            "Time limit reached without converging to set tolerance.");
+                break;
             }
             break;
         default:
@@ -672,9 +700,9 @@ da_status coord(da_options::OptionRegistry &opts, da_int n, std::vector<T> &x,
         std::cout << std::endl << "Solver summary" << std::endl;
         std::cout << " Objective value (scaled problem): " << *f << std::endl;
         if (optim < std::numeric_limits<T>::infinity()) {
-            std::cout << " Optimality measure:           " << optim << std::endl;
+            std::cout << " Optimality measure:               " << optim << std::endl;
         } else {
-            std::cout << " Optimality measure:           Infinity" << std::endl;
+            std::cout << " Optimality measure:               Infinity" << std::endl;
         }
         std::cout << " Number of optimality checks:  " << chkcnt << std::endl;
         std::cout << " Total number of step calls (cheap):   " << fcnt + lowrk << " ("
@@ -682,10 +710,14 @@ da_status coord(da_options::OptionRegistry &opts, da_int n, std::vector<T> &x,
         std::cout << " Total solve time: " << *time << " sec" << std::endl;
         std::cout << " Total number of iterations: " << iter << std::endl;
         if (status == da_status_success) {
-            std::cout
-                << " Convergence status: "
-                << "distance between two consecutive iterates is less than tolerance."
-                << std::endl;
+            std::cout << " Convergence status: ";
+            if (optim_usr < std::numeric_limits<T>::infinity()) {
+                std::cout << "dual gap is less than tolerance.";
+            } else {
+                std::cout << "distance between two consecutive iterates is "
+                          << "less than tolerance.";
+            }
+            std::cout << std::endl;
         } else {
             std::string errmsg;
             err.print(errmsg);
@@ -724,9 +756,8 @@ da_status coord(da_options::OptionRegistry &opts, da_int n, std::vector<T> &x,
  */
 template <typename T>
 da_status coord_rcomm(const da_int n, std::vector<T> &x, constraints::bound_constr<T> &bc,
-                      [[maybe_unused]] T factr, T tol, coord::solver_tasks &itask,
-                      da_int &k, T &newxk, da_int &iter, T &inorm, T &optim,
-                      da_int &action, da_errors::da_error_t &err,
+                      T optim, T tol, coord::solver_tasks &itask, da_int &k, T &newxk,
+                      da_int &iter, T &inorm, da_int &action, da_errors::da_error_t &err,
                       coord::coord_slv<T> &w) {
     // kchange = abs(kdiff)
     T kchange;
@@ -759,8 +790,9 @@ da_status coord_rcomm(const da_int n, std::vector<T> &x, constraints::bound_cons
         inorm = T(0);
         // Infinity-norm of the coefficient vector
         w.inormbeta = T(0);
-        // reset optimality measure
-        optim = std::numeric_limits<T>::infinity();
+        // Save the tolerances for convergence and optimality
+        w.tol = tol;     // check step length
+        w.optim = optim; // check optimality tolerance
         return da_status_success;
         break;
     case EVAL:
@@ -826,17 +858,17 @@ da_status coord_rcomm(const da_int n, std::vector<T> &x, constraints::bound_cons
         if (endcycle) {
             // Completed a full cycle
             ++iter;
-            T itol = tol;
+            tol = w.tol;
             if (__DA_COORD_SCALE_CONV_TOL >= 1)
-                itol *= w.inormbeta;
+                tol *= w.inormbeta;
             if (__DA_COORD_SCALE_CONV_TOL >= 2)
-                itol = std::max(itol, tol);
+                tol = std::max(tol, w.tol);
 
             // Should it also safe-guard and check for
             // error < machine epsilon and inorm < machine epsilon?
 
             // Check for convergence or search-space exhaustion
-            if (w.inormbeta == T(0) || inorm <= itol || k == kold) {
+            if (w.inormbeta == T(0) || inorm <= tol || k == kold) {
                 if (w.check_skip_ledger()) {
                     // No coordinates were skipped and tolerance reached.
                     // Now check for optimality condition before declaring convergence
@@ -886,7 +918,7 @@ da_status coord_rcomm(const da_int n, std::vector<T> &x, constraints::bound_cons
     case OPTIMCHK:
         // A full cycle has been completed, step is within tolerance
         // check for optimality condition, duality gap size, KKT, ...
-        if (optim <= tol) {
+        if (optim <= w.optim) {
             itask = STOP;
         } else {
             // Step is small but optimality not reached, e.g. duality gap still big

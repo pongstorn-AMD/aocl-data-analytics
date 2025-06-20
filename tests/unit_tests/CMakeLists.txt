@@ -101,8 +101,17 @@ add_executable(linmod_internal linear_models/linmod_internal.cpp)
 add_executable(logreg_public linear_models/logreg_public.cpp)
 target_compile_definitions(logreg_public PRIVATE DATA_DIR="${DATA_PATH}")
 
-add_executable(linreg_public linear_models/linreg_public.cpp)
-target_compile_definitions(linreg_public PRIVATE DATA_DIR="${DATA_PATH}")
+add_executable(linreg_noreg_public linear_models/linreg_noreg_public.cpp)
+target_compile_definitions(linreg_noreg_public PRIVATE DATA_DIR="${DATA_PATH}")
+
+add_executable(linreg_ridge_public linear_models/linreg_ridge_public.cpp)
+target_compile_definitions(linreg_ridge_public PRIVATE DATA_DIR="${DATA_PATH}")
+
+add_executable(linreg_lasso_public linear_models/linreg_lasso_public.cpp)
+target_compile_definitions(linreg_lasso_public PRIVATE DATA_DIR="${DATA_PATH}")
+
+add_executable(linreg_elnet_public linear_models/linreg_elnet_public.cpp)
+target_compile_definitions(linreg_elnet_public PRIVATE DATA_DIR="${DATA_PATH}")
 
 # ##############################################################################
 # Decision trees/forests ########
@@ -245,7 +254,10 @@ set(GTEST_PUBLIC
     csv_public
     linmod_public
     logreg_public
-    linreg_public
+    linreg_noreg_public
+    linreg_ridge_public
+    linreg_lasso_public
+    linreg_elnet_public
     decforest_public
     dectree_public
     data_public
@@ -269,10 +281,21 @@ set(UTESTS ${INTERNAL_UTESTS} ${PUBLIC_UTESTS})
 # Include source/core directories for internal tests
 foreach(internal_test ${INTERNAL_UTESTS})
   target_include_directories(${internal_test} PRIVATE ${INTERNAL_INC_DIRS})
-  if(ARCH STREQUAL "native" OR ARCH STREQUAL "dynamic")
+  if(ARCH STREQUAL "dynamic")
     # Internal tests will just use the generic codepath
     target_compile_definitions(${internal_test}
                                PRIVATE ARCH_generic;ZNVER_MAX=generic)
+  elseif(ARCH STREQUAL "native")
+    # Extract the target Zen generation, as this namespace is used in the code
+    extract_native_namespace(NATIVE_NAMESPACE)
+    if(NATIVE_NAMESPACE STREQUAL "generic")
+      target_compile_definitions(${internal_test}
+                                 PRIVATE ARCH_generic;ZNVER_MAX=generic)
+    else()
+      target_compile_definitions(
+        ${internal_test}
+        PRIVATE ARCH_znver=${NATIVE_NAMESPACE};ZNVER_MAX=zen${NATIVE_NAMESPACE})
+    endif()
   else()
     if(${ARCH} MATCHES "^znver([0-9]+)$")
       set(znver ${CMAKE_MATCH_1})

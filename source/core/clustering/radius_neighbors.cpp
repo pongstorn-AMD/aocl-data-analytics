@@ -30,7 +30,7 @@
 #include "pairwise_distances.hpp"
 #include <vector>
 
-#define RADIUS_NEIGHBORS_BLOCK_SIZE da_int(128)
+#define RADIUS_NEIGHBORS_BLOCK_SIZE da_int(256)
 
 namespace ARCH {
 
@@ -49,6 +49,7 @@ da_status radius_neighbors(da_int n_samples, da_int n_features, const T *A, da_i
 
     // 2D blocking scheme and threading scheme
     da_int max_block_size = std::min(RADIUS_NEIGHBORS_BLOCK_SIZE, n_samples);
+    da_int max_block_size_sq = max_block_size * max_block_size;
 
     da_int block_rem, n_blocks;
     ARCH::da_utils::blocking_scheme(n_samples, max_block_size, n_blocks, block_rem);
@@ -80,8 +81,9 @@ da_status radius_neighbors(da_int n_samples, da_int n_features, const T *A, da_i
     std::vector<neighbors_t> neighbors_local(n_threads);
 
 #pragma omp parallel num_threads(n_threads) default(none)                                \
-    shared(threading_error, neighbors, max_block_size, n_samples, D, A, A_norms,         \
-               block_rem, ldd, lda, eps_squared, n_blocks, n_features, neighbors_local)
+    shared(threading_error, neighbors, max_block_size, max_block_size_sq, n_samples, D,  \
+               A, A_norms, block_rem, ldd, lda, eps_squared, n_blocks, n_features,       \
+               neighbors_local)
     {
 
         // Thread 0 can write to neighbors; all other threads need to use neighbors_local
@@ -107,8 +109,7 @@ da_status radius_neighbors(da_int n_samples, da_int n_features, const T *A, da_i
                         if (task_error == 0) {
                             // Need a separate thread_num variable here since we don't know which thread will execute this task
                             da_int task_thread = omp_get_thread_num();
-                            da_int D_index =
-                                task_thread * max_block_size * max_block_size;
+                            da_int D_index = task_thread * max_block_size_sq;
                             da_int A_index_block_i = block_i * max_block_size;
                             da_int A_index_block_j = block_j * max_block_size;
                             da_int block_size_dim1 = max_block_size;
@@ -125,17 +126,16 @@ da_status radius_neighbors(da_int n_samples, da_int n_features, const T *A, da_i
                                 n_features, &A[A_index_block_i], lda, &A[A_index_block_j],
                                 lda, &D[D_index], ldd, &A_norms[A_index_block_i], 1,
                                 &A_norms[A_index_block_j], 1, true, diagonal_block);
-
                             // Iterate through the distance matrix and store the indices of the samples within the radius
                             for (da_int jj = 0; jj < block_size_dim2; jj++) {
                                 da_int ii_max =
                                     (diagonal_block) ? jj : block_size_dim1 - 1;
+                                da_int j = A_index_block_j + jj;
+                                da_int D_index_offset = D_index + ldd * jj;
                                 for (da_int ii = 0; ii <= ii_max; ii++) {
                                     // i and j correspond to the actual sample point indices we are considering
                                     da_int i = A_index_block_i + ii;
-                                    da_int j = A_index_block_j + jj;
-                                    if (D[D_index + ii + ldd * jj] <= eps_squared &&
-                                        i != j) {
+                                    if (D[D_index_offset + ii] <= eps_squared && i != j) {
                                         try {
                                             if (task_thread == 0) {
                                                 neighbors[i].push_back(j);

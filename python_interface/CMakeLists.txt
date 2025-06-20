@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (C) 2024-2025 Advanced Micro Devices, Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met: 1.
@@ -35,7 +35,15 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 # CMAKE_PREFIX_PATH=C:\path\to\python\site-packages\pybind11\share\cmake\pybind11;%CMAKE_PREFIX_PATH%
 
 set(CMAKE_INSTALL_MODE COPY)
-install(DIRECTORY python_package/aoclda DESTINATION python_package)
+if(BUILD_FORTRAN)
+  install(DIRECTORY python_package/aoclda DESTINATION python_package)
+else()
+  # Exclude those Python examples that rely on Fortran code
+  install(
+    DIRECTORY python_package/aoclda
+    DESTINATION python_package
+    PATTERN "nlls_*.py" EXCLUDE)
+endif()
 install(FILES python_package/setup.py DESTINATION python_package)
 
 if(NOT USE_EXISTING_DA)

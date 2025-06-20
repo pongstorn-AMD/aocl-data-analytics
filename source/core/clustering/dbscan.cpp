@@ -206,7 +206,7 @@ da_status dbscan<T>::set_data(da_int n_samples, da_int n_features, const T *A_in
         this->store_2D_array(n_samples, n_features, A_in, lda_in, &A_temp, &A, lda,
                              "n_samples", "n_features", "A", "lda");
     if (status != da_status_success)
-        return status;
+        return status; // LCOV_EXCL_LINE
 
     // Store dimensions of A
     this->n_samples = n_samples;
@@ -243,7 +243,7 @@ template <typename T> da_status dbscan<T>::compute() {
     this->opts.get("algorithm", opt_tmp, algorithm);
 
     // Currently we only support the brute-force method
-    if (algorithm != brute && algorithm != automatic && algorithm != brute_serial) {
+    if (algorithm != brute && algorithm != automatic && algorithm != brute_parallel) {
         return da_error(this->err, da_status_invalid_option,
                         "The only supported algorithm is 'brute'.");
     }
@@ -285,70 +285,12 @@ template <typename T> da_status dbscan<T>::compute() {
     return status;
 }
 
-/* Compute the DBSCAN clusters */
-template <typename T> da_status dbscan<T>::dbscan_clusters() {
+/* Compute the DBSCAN clusters using parallel brute force method */
+template <typename T> da_status dbscan<T>::dbscan_brute_force_parallel() {
+
     da_status status = da_status_success;
 
-    // Work with min_samples - 1 since we are not counting points as being in their own neighbourhood
-    da_int min_samples_m1 = min_samples - 1;
-
-    if (algorithm == brute_serial || omp_get_max_threads() <= 32) {
-        da_std::fill(labels.begin(), labels.end(), UNVISITED);
-
-        // Serial loop for computing DBSCAN clusters
-        for (da_int i = 0; i < n_samples; i++) {
-            if (status == da_status_memory_error)
-                continue;
-            try {
-                // If we've already looked at this point we can go to the next loop iteration
-                if (labels[i] != UNVISITED)
-                    continue;
-
-                // Find the neighbors of the current sample
-                if ((da_int)neighbors[i].size() < min_samples_m1) {
-                    //Epsilon neighborhood is too small to form a cluster; label as noise
-                    labels[i] = NOISE;
-                } else {
-                    // Form a new cluster and label this as a core sample
-                    labels[i] = n_clusters;
-                    core_sample_indices.push_back(i);
-
-                    da_vector::da_vector<da_int> search_indices;
-                    // The epsilon neighbors of this point form the start of our search vector
-                    search_indices.append(neighbors[i]);
-
-                    for (da_int j = 0; j < (da_int)search_indices.size(); j++) {
-                        da_int neigh = search_indices[j];
-                        if (labels[neigh] == NOISE) {
-                            // If the point was previously labeled as noise, it is now part of a cluster
-                            labels[neigh] = n_clusters;
-                            continue;
-                        }
-
-                        if (labels[neigh] != UNVISITED)
-                            // If the point has already been visited we don't need to look at it
-                            continue;
-
-                        labels[neigh] = n_clusters;
-
-                        if ((da_int)neighbors[neigh].size() >= min_samples_m1) {
-                            // This point is also a core sample point so mark it as such and add its neighbors to the search vector
-                            search_indices.append(neighbors[neigh]);
-                            core_sample_indices.push_back(neigh);
-                        }
-                    }
-
-                    n_clusters++;
-                }
-            } catch (std::bad_alloc const &) {
-                status = da_status_memory_error;
-                continue;
-            }
-        }
-
-    } else {
-
-        std::unordered_map<da_int, da_int> label_map;
+    std::unordered_map<da_int, da_int> label_map;
 
 #pragma omp declare reduction(                                                           \
         merge_unordered_maps_red : std::unordered_map<                                   \
@@ -358,83 +300,180 @@ template <typename T> da_status dbscan<T>::dbscan_clusters() {
 #pragma omp parallel default(none)                                                       \
     shared(labels, neighbors, n_clusters, n_core_samples, core_sample_indices,           \
                min_samples_m1, n_samples, status, label_map)
-        {
-            bool local_failure = false;
+    {
+        bool local_failure = false;
 
-            da_vector::da_vector<da_int> local_core_sample_indices;
+        da_vector::da_vector<da_int> local_core_sample_indices;
 
-            try {
+        try {
 // Parallel loop to compute DBSCAN clusters
-#pragma omp for schedule(dynamic, 32) reduction(merge_unordered_maps_red : label_map)    \
+#pragma omp for schedule(dynamic, 512) reduction(merge_unordered_maps_red : label_map)   \
     nowait
-                for (da_int i = 0; i < n_samples; i++) {
-                    if ((da_int)neighbors[i].size() >= min_samples_m1) {
-                        // This is a core point
-                        da_int tmp_label_i;
+            for (da_int i = 0; i < n_samples; i++) {
+                if ((da_int)neighbors[i].size() >= min_samples_m1) {
+                    // This is a core point
+                    da_int tmp_label_i;
 #pragma omp atomic read
-                        tmp_label_i = labels[i];
-                        if (i < tmp_label_i || tmp_label_i == NOISE) {
+                    tmp_label_i = labels[i];
+                    if (i < tmp_label_i || tmp_label_i == NOISE) {
 #pragma omp atomic write
-                            // Assign it it's own index as the cluster label - we will combine clusters later
-                            labels[i] = i;
-                        }
-                        // Record that it's a core sample point
-                        local_core_sample_indices.push_back(i);
-                        // Loop through each point in the epsilon neighborhood of point i
-                        for (da_int j = 0; j < (da_int)neighbors[i].size(); j++) {
-                            da_int sample_point_j = neighbors[i][j];
-                            da_int tmp_label_j;
+                        // Assign it its own index as the cluster label - we will combine clusters later
+                        labels[i] = i;
+                    }
+                    // Record that it's a core sample point
+                    local_core_sample_indices.push_back(i);
+                    // Loop through each point in the epsilon neighborhood of point i
+                    for (da_int j = 0; j < (da_int)neighbors[i].size(); j++) {
+                        da_int sample_point_j = neighbors[i][j];
+                        da_int tmp_label_j;
 #pragma omp atomic read
-                            tmp_label_j = labels[sample_point_j];
-                            // Record that i and j are in the same cluster
-                            std::pair<da_int, da_int> key_value_tmp =
-                                std::minmax(i, sample_point_j);
-                            // Add this pair to the label map to deal with duplicate cluster labels
-                            add_to_label_map(label_map, key_value_tmp.second,
-                                             key_value_tmp.first);
+                        tmp_label_j = labels[sample_point_j];
+                        // Record that i and j are in the same cluster
+                        std::pair<da_int, da_int> key_value_tmp =
+                            std::minmax(i, sample_point_j);
+                        // Add this pair to the label map to deal with duplicate cluster labels
+                        add_to_label_map(label_map, key_value_tmp.second,
+                                         key_value_tmp.first);
 
-                            if (i < tmp_label_j || tmp_label_j == NOISE) {
+                        if (i < tmp_label_j || tmp_label_j == NOISE) {
 #pragma omp atomic write
-                                labels[sample_point_j] = i;
-                            }
+                            labels[sample_point_j] = i;
                         }
                     }
                 }
+            }
 
 #pragma omp critical
-                { core_sample_indices.append(local_core_sample_indices); }
-            } catch (std::bad_alloc const &) {
-                local_failure = true; // LCOV_EXCL_LINE
-            }
-#pragma omp barrier
-            if (!local_failure) {
-                try {
-#pragma omp for schedule(dynamic, 32)
-                    for (da_int i = 0; i < n_samples; i++) {
-                        da_int current_label = labels[i];
-                        if (current_label == NOISE) {
-                            continue;
-                        }
-
-                        auto it = label_map.find(current_label);
-                        while (it != label_map.end()) {
-                            current_label = it->second;
-                            it = label_map.find(current_label);
-                        }
-                        labels[i] = current_label;
-                    }
-                } catch (std::bad_alloc const &) {
-                    local_failure = true;
-                }
-            }
-            if (local_failure)
-                status = da_status_memory_error;
+            { core_sample_indices.append(local_core_sample_indices); }
+        } catch (std::bad_alloc const &) {
+            local_failure = true; // LCOV_EXCL_LINE
         }
+#pragma omp barrier
+        if (!local_failure) {
+            try {
+#pragma omp for schedule(dynamic, 512)
+                for (da_int i = 0; i < n_samples; i++) {
+                    da_int current_label = labels[i];
+                    if (current_label == NOISE) {
+                        continue;
+                    }
 
+                    auto it = label_map.find(current_label);
+                    while (it != label_map.end()) {
+                        current_label = it->second;
+                        it = label_map.find(current_label);
+                    }
+                    labels[i] = current_label;
+                }
+            } catch (std::bad_alloc const &) {
+                local_failure = true;
+            }
+        }
+        if (local_failure)
+            status = da_status_memory_error;
+    }
+
+    if (status != da_status_success)
+        return da_error(this->err, status, // LCOV_EXCL_LINE
+                        "Memory allocation failed.");
+
+    return status;
+}
+
+/* Compute the DBSCAN clusters using serial brute force method */
+template <typename T> da_status dbscan<T>::dbscan_brute_force_serial() {
+
+    da_status status = da_status_success;
+
+    da_std::fill(labels.begin(), labels.end(), UNVISITED);
+
+    // Serial loop for computing DBSCAN clusters
+    for (da_int i = 0; i < n_samples; i++) {
         if (status == da_status_memory_error)
+            continue; // LCOV_EXCL_LINE
+        try {
+            // If we've already looked at this point we can go to the next loop iteration
+            if (labels[i] != UNVISITED)
+                continue;
+
+            // Find the neighbors of the current sample
+            if ((da_int)neighbors[i].size() < min_samples_m1) {
+                //Epsilon neighborhood is too small to form a cluster; label as noise
+                labels[i] = NOISE;
+            } else {
+                // Form a new cluster and label this as a core sample
+                labels[i] = n_clusters;
+                core_sample_indices.push_back(i);
+
+                da_vector::da_vector<da_int> search_indices;
+                // The epsilon neighbors of this point form the start of our search vector
+                search_indices.append(neighbors[i]);
+
+                for (da_int j = 0; j < (da_int)search_indices.size(); j++) {
+                    da_int neigh = search_indices[j];
+                    if (labels[neigh] == NOISE) {
+                        // If the point was previously labeled as noise, it is now part of a cluster
+                        labels[neigh] = n_clusters;
+                        continue;
+                    }
+
+                    if (labels[neigh] != UNVISITED)
+                        // If the point has already been visited we don't need to look at it
+                        continue;
+
+                    labels[neigh] = n_clusters;
+
+                    if ((da_int)neighbors[neigh].size() >= min_samples_m1) {
+                        // This point is also a core sample point so mark it as such and add its neighbors to the search vector
+                        search_indices.append(neighbors[neigh]);
+                        core_sample_indices.push_back(neigh);
+                    }
+                }
+
+                n_clusters++;
+            }
+        } catch (std::bad_alloc const &) {
             return da_error(this->err, da_status_memory_error, // LCOV_EXCL_LINE
                             "Memory allocation failed.");
+        }
     }
+
+    return status;
+}
+
+/* Compute the DBSCAN clusters */
+template <typename T> da_status dbscan<T>::dbscan_clusters() {
+    da_status status = da_status_success;
+
+    // Work with min_samples - 1 since we are not counting points as being in their own neighbourhood
+    min_samples_m1 = min_samples - 1;
+
+    // Select the algorithm: we only want to use the parallel brute force method if explicitly forced or
+    // if we have more than 32 threads available, since otherwise the serial brute force method is faster
+    da_int internal_algorithm = algorithm;
+
+    if (internal_algorithm == brute || internal_algorithm == automatic) {
+        if (omp_get_max_threads() > 32)
+            internal_algorithm = brute_parallel;
+        else
+            internal_algorithm = brute_serial;
+    }
+
+    switch (internal_algorithm) {
+    case brute_serial:
+        status = dbscan_brute_force_serial();
+        break;
+    case brute_parallel:
+        status = dbscan_brute_force_parallel();
+        break;
+    default:
+        return da_error(this->err, da_status_internal_error, // LCOV_EXCL_LINE
+                        "Invalid algorithm selected.");
+    }
+
+    // If clustering failed (only possible if memory runs out) return immediately
+    if (status != da_status_success)
+        return status; // LCOV_EXCL_LINE
 
     // Record how many distinct clusters and how many core samples we have and form a new map for relabeling
     n_core_samples = core_sample_indices.size();

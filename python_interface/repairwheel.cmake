@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (C) 2024-2025 Advanced Micro Devices, Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met: 1.
@@ -56,9 +56,8 @@ foreach(file ${wheel_files})
         "libc.so.6" --exclude "libgcc_s.so.1" --exclude "libstdc++.so.6"
         --exclude "libstdc++.so.8" --exclude "libgcc_s.so.*" --exclude
         "libc.so.*" --exclude "librt.so.*" --exclude "librt.so.1" --exclude
-        "libdl.so.*" --exclude "libdl.so.2" --exclude
-        "libpthread.so.*" --exclude "libpthread.so.0" --exclude
-        "libm.so.*" --exclude "libm.so.6")
+        "libdl.so.*" --exclude "libdl.so.2" --exclude "libpthread.so.*"
+        --exclude "libpthread.so.0" --exclude "libm.so.*" --exclude "libm.so.6")
 
   endif()
 endforeach()

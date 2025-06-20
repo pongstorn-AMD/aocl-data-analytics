@@ -66,6 +66,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(BUILD_EXAMPLES "Build the example programs" ON)
 option(BUILD_GTEST "Build Gtest unit-tests" ON)
 option(COVERAGE "Builds coverage of Gtests and examples (Debug/GCC)" OFF)
+option(BUILD_FORTRAN
+       "Builds aocl-da with the Fortran dependencies, RALFit and lbfgsb" ON)
 option(BUILD_ILP64 "ILP64 Support" OFF)
 if(NOT WIN32) # Linux options only
   option(ASAN "Enable Address SANitizer tool (GNU/Linux)" OFF)
@@ -73,15 +75,29 @@ if(NOT WIN32) # Linux options only
   option(VALGRIND "Enable memory leak detection tool (GNU/Linux)" OFF)
 endif()
 option(BUILD_DOC "Build HTML documentation" OFF)
+option(INTERNAL_DOC "Build interal HTML documentation" OFF)
+# Do not let INTERNAL_DOC appear on cmake-gui
+mark_as_advanced(INTERNAL_DOC)
 option(BUILD_SMP "Build using OpenMP and link to threaded BLAS and LAPACK" ON)
 option(VECTORIZATION_REPORTS "Generate vectorization reports" OFF)
 option(DA_LOGGING "Compile with debug printing" OFF)
 option(BUILD_SHARED_LIBS "Shared library build" OFF)
 option(USE_LIBMEM "Link with AOCL LibMem" OFF)
-set(ARCH "native" CACHE STRING "Architecture(s) to build: dynamic, native, znver2, znver3, ... (default: native)")
+# ARCH can be set as shown below, with default "native". If "dynamic" is set,
+# then a list of target architectures will be built and returned in BUILD_ARCHS.
+# If "native" is set, then the native architecture will be built, and the
+# internal namespace will be set to NATIVE_NAMESPACE to ensure appropriate
+# performant kernels are called.
+set(ARCH
+    "native"
+    CACHE
+      STRING
+      "Architecture(s) to build: dynamic, native, znver2, znver3, ... (default: native)"
+)
 set(ARCH_LIST "dynamic" "native" "znver2" "znver3" "znver4" "znver5")
 if(NOT ARCH IN_LIST ARCH_LIST)
-    message(FATAL_ERROR "Invalid ARCH value: \"${ARCH}\"\n" "Valid values are: ${ARCH_LIST}")
+  message(FATAL_ERROR "Invalid ARCH value: \"${ARCH}\"\n"
+                      "Valid values are: ${ARCH_LIST}")
 endif()
 option(BUILD_PYTHON "Python bindings" OFF)
 # Set paths to AOCL-Utils, BLAS, LAPACK and AOCL-Sparse installations.
@@ -223,7 +239,12 @@ if(CMAKE_AOCL_ROOT STREQUAL ""
   )
 endif()
 
-enable_language(Fortran)
+if(BUILD_FORTRAN)
+  enable_language(Fortran)
+else()
+  add_compile_definitions(NO_FORTRAN)
+endif()
+
 if(WIN32)
   # MSVC has warnings about deprecated CRT functions; these definitions overload
   # them automatically with _s versions
@@ -243,41 +264,45 @@ if(WIN32)
     endif()
   endif()
 
-  # Clang-cl or MSVC require ifort for the Fortran compilation
-  if(CLANG_OPTIONS_STYLE STREQUAL "MSVC" OR CMAKE_CXX_COMPILER_ID STREQUAL
-                                            "MSVC")
-    if(CMAKE_Fortran_COMPILER_ID MATCHES "Flang")
-      if(NOT DEFINED ENV{FLANG_COMPILER})
-        message(FATAL_ERROR "Environment variable \$FLANG_COMPILER not found.")
-      endif()
-
-      file(TO_CMAKE_PATH $ENV{FLANG_COMPILER} FLANG_PATH)
-      set(CMAKE_Fortran_COMPILER "${FLANG_PATH}/bin/flang.exe")
-      set(FLANG_LIBS "${FLANG_PATH}/lib")
-      set(FORTRAN_RUNTIME "${FLANG_LIBS}/flang.lib"
-                          "${FLANG_LIBS}/libpgmath.lib")
-    else()
-      set(IFORT_LIBS
-          "$ENV{LIB}"
-          CACHE STRING
-                "Setting path to Intel Fortran runtime libraries on Windows")
-      set(FORTRAN_RUNTIME
-          "$<IF:$<CONFIG:Debug>,libifcoremdd.lib,libifcoremd.lib>")
-      add_compile_definitions(WIN_IFORT_NAME_MANGLING)
-    endif()
-  else()
-    if(NOT DEFINED ENV{MINGW_BIN})
-      message(FATAL_ERROR "Environment variable \$MINGW_BIN not found.")
-    endif()
-
-    file(TO_CMAKE_PATH $ENV{MINGW_BIN} MINGW_PATH)
-    set(CMAKE_Fortran_COMPILER gfortran)
-  endif()
-
   set(CMAKE_FIND_LIBRARY_PREFIXES "")
   set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib" ".dll")
+
+  if(BUILD_FORTRAN)
+    # Clang-cl or MSVC require ifort for the Fortran compilation
+    if(CLANG_OPTIONS_STYLE STREQUAL "MSVC" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                              "MSVC")
+      if(CMAKE_Fortran_COMPILER_ID MATCHES "Flang")
+        if(NOT DEFINED ENV{FLANG_COMPILER})
+          message(
+            FATAL_ERROR "Environment variable \$FLANG_COMPILER not found.")
+        endif()
+
+        file(TO_CMAKE_PATH $ENV{FLANG_COMPILER} FLANG_PATH)
+        set(CMAKE_Fortran_COMPILER "${FLANG_PATH}/bin/flang.exe")
+        set(FLANG_LIBS "${FLANG_PATH}/lib")
+        set(FORTRAN_RUNTIME "${FLANG_LIBS}/flang.lib"
+                            "${FLANG_LIBS}/libpgmath.lib")
+      else()
+        set(IFORT_LIBS
+            "$ENV{LIB}"
+            CACHE STRING
+                  "Setting path to Intel Fortran runtime libraries on Windows")
+        set(FORTRAN_RUNTIME
+            "$<IF:$<CONFIG:Debug>,libifcoremdd.lib,libifcoremd.lib>")
+        add_compile_definitions(WIN_IFORT_NAME_MANGLING)
+      endif()
+    else()
+      if(NOT DEFINED ENV{MINGW_BIN})
+        message(FATAL_ERROR "Environment variable \$MINGW_BIN not found.")
+      endif()
+
+      file(TO_CMAKE_PATH $ENV{MINGW_BIN} MINGW_PATH)
+      set(CMAKE_Fortran_COMPILER gfortran)
+    endif()
+  endif()
+
 else()
-  if(NOT WIN32)
+  if(BUILD_FORTRAN)
     if(CMAKE_Fortran_COMPILER_ID MATCHES "Flang")
       set(FORTRAN_RUNTIME "flang")
     else() # GNU
@@ -299,8 +324,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC"
     set(COMPILER_FLAGS_CXX_DEBUG "${COMPILER_FLAGS_CXX_DEBUG};-W3;-DEBUG")
     set(COMPILER_FLAGS_CXX "${COMPILER_FLAGS_CXX};/std:c++17;/EHsc")
   else()
-    set(COMPILER_FLAGS_RELEASE
-        "${COMPILER_FLAGS_RELEASE};/DNDEBUG;/O2;")
+    set(COMPILER_FLAGS_RELEASE "${COMPILER_FLAGS_RELEASE};/DNDEBUG;/O2;")
     set(COMPILER_FLAGS_DEBUG "${COMPILER_FLAGS_DEBUG};/Od")
     set(COMPILER_FLAGS_CXX_DEBUG "${COMPILER_FLAGS_CXX_DEBUG};/W3;/DEBUG")
     set(COMPILER_FLAGS_CXX
@@ -389,8 +413,10 @@ endif()
 
 if(NOT USE_EXISTING_DA)
   # Compile external packages
-  add_subdirectory(external/Lbfgsb.3.0)
-  add_subdirectory(external/RALFit EXCLUDE_FROM_ALL)
+  if(BUILD_FORTRAN)
+    add_subdirectory(external/Lbfgsb.3.0)
+    add_subdirectory(external/RALFit EXCLUDE_FROM_ALL)
+  endif()
 
   # add Boost for Boost.Sort functionality (assume Boost is installed on system)
   set(BOOST_MIN_VERSION "1.66.0")
@@ -398,7 +424,6 @@ if(NOT USE_EXISTING_DA)
 
   # Compile data analytics core library
   add_subdirectory(source)
-
 
   # Put all custom configuration BEFORE including "CTest"
   if(VALGRIND)
@@ -465,7 +490,9 @@ if(CMAKE_BUILD_TYPE MATCHES "Release")
 endif()
 
 message(NOTICE "\nOPTIONS")
-message(NOTICE "Requested architecture(s) ARCH.................: ${ARCH} (${BUILD_ARCHS})")
+message(
+  NOTICE
+  "Requested architecture(s) ARCH.................: ${ARCH} (${BUILD_ARCHS})")
 message(NOTICE "Building with ASan        ASAN.................: ${ASAN}")
 message(NOTICE "Building docs             BUILD_DOC............: ${BUILD_DOC}")
 if(INTERNAL_DOC)
@@ -476,6 +503,8 @@ message(NOTICE
         "Building for ILP64        BUILD_ILP64..........: ${BUILD_ILP64}")
 message(NOTICE
         "Building Python bindings  BUILD_PYTHON.........: ${BUILD_PYTHON}")
+message(NOTICE
+        "Building Fortran code     BUILD_FORTRAN........: ${BUILD_FORTRAN}")
 message(NOTICE "Building with OpenMP      BUILD_SMP............: ${BUILD_SMP}")
 message(NOTICE
         "Shared library build      BUILD_SHARED_LIBS....: ${BUILD_SHARED_LIBS}")

@@ -112,17 +112,10 @@ TEST(UtilitiesTest, DynamicDispatchEnv) {
     } else {
         // count == 1
         // two cases:
-        // 1.- EASY -DARCH=zenX uses zenX
-        // 2.- HARD -DARCH=native highjacks "generic" so arch and ns don't matchup
-        //          arch can be also "generic" so this case merges into the 1 easy case
-        bool ok = std::string(ns) == "da_dynamic_dispatch_"s + std::string(arch);
-        if (!ok) {
-            // try the hard case
-            EXPECT_EQ(0, da_test::da_setenv("AOCL_DA_ARCH", "generic", 1));
-            EXPECT_EQ(da_status_success, da_get_arch_info(&len, arch, ns));
-            ok = std::string(ns) == "da_dynamic_dispatch_generic"s;
-        }
-        EXPECT_TRUE(ok);
+        // 1. -DARCH=zenX uses zenX
+        // 2. -DARCH=native
+        // In both cases arch and ns should match
+        EXPECT_EQ(std::string(ns), "da_dynamic_dispatch_"s + std::string(arch));
     }
 
     EXPECT_EQ(0, da_test::da_setenv("AOCL_DA_ARCH", ok_arch.c_str(), 1));

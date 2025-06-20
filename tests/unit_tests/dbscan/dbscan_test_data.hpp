@@ -54,7 +54,7 @@ template <typename T> struct DBSCANParamType {
     da_int expected_n_core_samples = 0;
     da_int leaf_size = 30;
 
-    std::string algorithm = "brute";
+    std::string algorithm = "brute parallel";
     std::string order = "column-major";
     std::string metric = "euclidean";
 
@@ -182,7 +182,7 @@ template <typename T> void Get1by1Data(std::vector<DBSCANParamType<T>> &params) 
     DBSCANParamType<T> param;
     Get1by1BaseData(param);
     params.push_back(param);
-    param.algorithm = "brute serial";
+    param.algorithm = "brute";
     param.test_name = "1 by 1 data matrix with serial DBSCAN";
     params.push_back(param);
 }
@@ -192,7 +192,7 @@ template <typename T> void GetZeroData(std::vector<DBSCANParamType<T>> &params) 
     DBSCANParamType<T> param;
     GetZeroBaseData(param);
     params.push_back(param);
-    param.algorithm = "brute serial";
+    param.algorithm = "brute";
     param.test_name = "Empty data matrix with serial DBSCAN";
     params.push_back(param);
 }
@@ -202,7 +202,7 @@ template <typename T> void Get30by3Data(std::vector<DBSCANParamType<T>> &params)
     DBSCANParamType<T> param;
     Get30by3BaseData(param);
     params.push_back(param);
-    param.algorithm = "brute serial";
+    param.algorithm = "auto";
     param.test_name = "30 by 3 data matrix with serial DBSCAN";
     params.push_back(param);
 }
@@ -212,7 +212,7 @@ template <typename T> void Get25by2Data(std::vector<DBSCANParamType<T>> &params)
     DBSCANParamType<T> param;
     Get25by2BaseData(param);
     params.push_back(param);
-    param.algorithm = "brute serial";
+    param.algorithm = "brute";
     param.test_name = "25 by 2 data matrix with serial DBSCAN";
     params.push_back(param);
     Get25by2BaseData(param);
@@ -227,7 +227,7 @@ template <typename T> void Get25by2Data(std::vector<DBSCANParamType<T>> &params)
     param.expected_rinfo[7] = 0;
     param.expected_rinfo[8] = 0;
     params.push_back(param);
-    param.algorithm = "brute serial";
+    param.algorithm = "brute";
     param.test_name = "25 by 2 data matrix with tiny eps and serial DBSCAN";
     params.push_back(param);
     Get25by2BaseData(param);

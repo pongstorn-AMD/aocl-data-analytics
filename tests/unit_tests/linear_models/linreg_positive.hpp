@@ -43,11 +43,31 @@
 #include <type_traits>
 using namespace std::literals::string_literals;
 
+const double infd{std::numeric_limits<double>::infinity()};
+const float infs{std::numeric_limits<float>::infinity()};
+
+typedef struct linregParam_t {
+    std::string test_name; // name of the ctest test
+    std::string data_name; // name of the files to read in
+    std::vector<option_t<da_int>> iopts;
+    std::vector<option_t<std::string>> sopts;
+    std::vector<option_t<float>> fopts;
+    std::vector<option_t<double>> dopts;
+    // check the solution
+    bool check_coeff{true};
+    // check the prediction
+    bool check_predict{true};
+    // scale to pass to expected_precision<T>(T scale=1.0)
+    float check_tol_scale{1.0f};
+    // check dual-gap [0] = float [1] = double
+    float dual_gap[2]{-1.0f, -1.0f};
+} linregParam;
+
 template <typename T>
 void test_linreg_positive(std::string csvname, std::vector<option_t<da_int>> iopts,
                           std::vector<option_t<std::string>> sopts,
                           std::vector<option_t<T>> ropts, bool check_coeff,
-                          bool check_predict, T check_tol_scale) {
+                          bool check_predict, T check_tol_scale, T dual_gap) {
 
     // get template instantiation type (either single or double)
     const bool single = std::is_same_v<T, float>; // otherwise assume double
@@ -114,7 +134,7 @@ void test_linreg_positive(std::string csvname, std::vector<option_t<da_int>> iop
     ///////////////////
     EXPECT_EQ(da_linmod_select_model<T>(linmod_handle, linmod_model_mse),
               da_status_success);
-    EXPECT_EQ(da_linmod_define_features(linmod_handle, nsamples, nfeat, A, b),
+    EXPECT_EQ(da_linmod_define_features(linmod_handle, nsamples, nfeat, A, nsamples, b),
               da_status_success);
 
     // Compute regression
@@ -137,24 +157,29 @@ void test_linreg_positive(std::string csvname, std::vector<option_t<da_int>> iop
 
     if (infochk) { // Assumes that initial iterate is not solution and that problem does not have residual=0 at x=0
         // info_objective is checked later
-        const T iter = info[da_optim_info_t::info_iter];
+        const T iter = info[da_linmod_info_t::linmod_info_iter];
         // lbfgs timer may be broken for windows
 #if defined(WIN32)
-        EXPECT_GE(info[da_optim_info_t::info_time], 0);
+        EXPECT_GE(info[da_linmod_info_t::linmod_info_time], 0);
 #else
-        EXPECT_GT(info[da_optim_info_t::info_time], 0);
+        EXPECT_GT(info[da_linmod_info_t::linmod_info_time], 0);
 #endif
-        EXPECT_GT(info[da_optim_info_t::info_nevalf], 0);
+        EXPECT_GT(info[da_linmod_info_t::linmod_info_nevalf], 0);
         if (method == "coord"s) {
             EXPECT_GT(iter, 1);
-            EXPECT_GE(info[da_optim_info_t::info_inorm], 0);
-            EXPECT_GE(info[da_optim_info_t::info_inorm_init], 0);
-            EXPECT_GT(info[da_optim_info_t::info_nevalf], 0);
-            EXPECT_GE(info[da_optim_info_t::info_ncheap], std::max(T(1), iter - T(1)));
+            EXPECT_GE(info[da_linmod_info_t::linmod_info_inorm], 0);
+            EXPECT_GE(info[da_linmod_info_t::linmod_info_inorm_init], 0);
+            EXPECT_GT(info[da_linmod_info_t::linmod_info_nevalf], 0);
+            EXPECT_GE(info[da_linmod_info_t::linmod_info_ncheap],
+                      std::max(T(1), iter - T(1)));
+            if (dual_gap >= T(0)) {
+                EXPECT_LT(info[da_linmod_info_t::linmod_info_optim], dual_gap)
+                    << "Coord: Dual gap size unexpectedly LARGE!";
+            }
         } else {
             EXPECT_GT(iter, 0);
-            EXPECT_GT(info[da_optim_info_t::info_nevalf], 0);
-            EXPECT_GE(info[da_optim_info_t::info_grad_norm], 0);
+            EXPECT_GT(info[da_linmod_info_t::linmod_info_nevalf], 0);
+            EXPECT_GE(info[da_linmod_info_t::linmod_info_grad_norm], 0);
         }
     }
 
@@ -233,8 +258,8 @@ void test_linreg_positive(std::string csvname, std::vector<option_t<da_int>> iop
         EXPECT_EQ(da_read_csv(sol_store, solution_fname.c_str(), &sol_exp, &srows, &scols,
                               nullptr),
                   da_status_success);
-        EXPECT_EQ(da_linmod_evaluate_model(linmod_handle, nsamples, nfeat, A, sol.data(),
-                                           b, &loss),
+        EXPECT_EQ(da_linmod_evaluate_model(linmod_handle, nsamples, nfeat, A, nsamples,
+                                           sol.data(), b, &loss),
                   da_status_success);
 
         // Check predictions
@@ -243,12 +268,12 @@ void test_linreg_positive(std::string csvname, std::vector<option_t<da_int>> iop
         // Check loss with info from solver (objective function)
         if (infochk) {
             if (single) {
-                // EXPECT_FLOAT_EQ(loss, info[da_optim_info_t::info_objective])
-                EXPECT_NEAR(loss, info[da_optim_info_t::info_objective], 1.0e-5)
+                // EXPECT_FLOAT_EQ(loss, info[da_linmod_info_t::linmod_info_objective])
+                EXPECT_NEAR(loss, info[da_linmod_info_t::linmod_info_objective], 1.0e-5)
                     << "Objective function (LOSS) mismatch!";
             } else {
-                // EXPECT_DOUBLE_EQ(loss, info[da_optim_info_t::info_objective])
-                EXPECT_NEAR(loss, info[da_optim_info_t::info_objective], 1.0e-12)
+                // EXPECT_DOUBLE_EQ(loss, info[da_linmod_info_t::linmod_info_objective])
+                EXPECT_NEAR(loss, info[da_linmod_info_t::linmod_info_objective], 1.0e-12)
                     << "Objective function (LOSS) mismatch!";
             }
         }
@@ -314,13 +339,13 @@ void test_linreg_positive(std::string csvname, std::vector<option_t<da_int>> iop
         // A is the training set and b is the predicted y of the trained model:
         // beta = y ~ x, then b = predict(beta, x)
         std::vector<T> pred(nsamples);
-        EXPECT_EQ(
-            da_linmod_evaluate_model(linmod_handle, nsamples, nfeat, A, pred.data()),
-            da_status_success);
+        EXPECT_EQ(da_linmod_evaluate_model(linmod_handle, nsamples, nfeat, A, nsamples,
+                                           pred.data()),
+                  da_status_success);
         EXPECT_ARR_NEAR(nsamples, pred.data(), b, expected_precision<T>(check_tol_scale));
         T loss;
-        EXPECT_EQ(da_linmod_evaluate_model(linmod_handle, nsamples, nfeat, A, pred.data(),
-                                           b, &loss),
+        EXPECT_EQ(da_linmod_evaluate_model(linmod_handle, nsamples, nfeat, A, nsamples,
+                                           pred.data(), b, &loss),
                   da_status_success);
 
         delete[] A;

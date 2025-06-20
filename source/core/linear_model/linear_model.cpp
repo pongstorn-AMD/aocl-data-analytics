@@ -159,9 +159,6 @@ template <typename T> linear_model<T>::~linear_model() {
 
     if (udata)
         delete udata;
-
-    if (X_temp)
-        delete[] (X_temp);
 };
 
 template <typename T>
@@ -173,6 +170,7 @@ da_status linear_model<T>::get_result(da_result query, da_int *dim, T *result) {
                        "last call to the solver successful?");
     switch (query) {
     case da_result::da_rinfo:
+        da_status status;
         if (*dim < 100) {
             *dim = 100;
             return da_warn(this->err, da_status_invalid_array_dimension,
@@ -184,37 +182,55 @@ da_status linear_model<T>::get_result(da_result query, da_int *dim, T *result) {
             result[i] = T(-1);
 
         // Copy out the info array if available for optimization solvers
-        if (method_id == linmod_method::lbfgsb || method_id == linmod_method::coord)
+        if (method_id == linmod_method::lbfgsb || method_id == linmod_method::coord) {
             // Hopefully no opt solver will use more that the hard coded limit
-            return opt->get_info(*dim, result);
+            status = opt->get_info(*dim, result);
+            if (status != da_status_success) {
+                return status;
+            }
+        }
         // For the rest of the solvers find loss value via loss_mse function and set compute time
         else {
             // Save information about loss function
-            da_int status;
+            da_int flag;
             T loss;
             std::vector<T> pred(nsamples);
             const T l1reg = alpha * lambda;
             const T l2reg = (T(1) - alpha) * lambda / T(2);
             // Call loss_mse
-            status = loss_mse(nsamples, nfeat, X, intercept, l1reg, l2reg, coef.data(), y,
-                              &loss, pred.data());
-            if (status != 0) {
+            flag = loss_mse(nsamples, nfeat, X, ldX, intercept, l1reg, l2reg, coef.data(),
+                            y, &loss, pred.data());
+            if (flag != 0) {
                 return da_status_incorrect_output;
             }
             // Save information about the value of loss function
-            result[0] = loss;
+            result[da_linmod_info_t::linmod_info_objective] = loss;
             // Save information about the computation time
-            result[3] = time;
+            result[da_linmod_info_t::linmod_info_time] = time;
         }
         // For CG we have member function that fills n_iter and gradient of loss
-        if (method_id == linmod_method::cg)
-            return cg->get_info(*dim, result);
+        if (method_id == linmod_method::cg) {
+            status = cg->get_info(*dim, result);
+            if (status != da_status_success) {
+                return status;
+            }
+        }
+        result[da_linmod_info_t::linmod_info_nsamples] = nsamples;
+        result[da_linmod_info_t::linmod_info_nfeat] = nfeat;
+        result[da_linmod_info_t::linmod_info_nclass] = nclass;
+        result[da_linmod_info_t::linmod_info_nrow_coef] = nrow_coef;
+        result[da_linmod_info_t::linmod_info_ncol_coef] = ncol_coef;
+        result[da_linmod_info_t::linmod_info_well_determined] = is_well_determined;
 
         return da_status_success;
         break;
 
     case da_result::da_linmod_coef:
-        return this->get_coef(*dim, result);
+        return this->get_coef(*dim, result, primal);
+        break;
+
+    case da_result::da_linmod_dual_coef:
+        return this->get_coef(*dim, result, dual);
         break;
 
     default:
@@ -237,38 +253,50 @@ da_status linear_model<T>::get_result([[maybe_unused]] da_result query,
  */
 template <typename T>
 da_status linear_model<T>::define_features(da_int nfeat, da_int nsamples, const T *X,
-                                           const T *y) {
+                                           da_int ldX, const T *y) {
 
-    // Guard against errors due to multiple calls using the same class instantiation
-    if (X_temp) {
-        delete[] (X_temp);
-        X_temp = nullptr;
+    if (nfeat <= 0 || nsamples <= 0) {
+        return da_error(this->err, da_status_invalid_input,
+                        "The number of features and samples must be positive.");
     }
 
     std::string opt_order;
     this->opts.get("storage order", opt_order, this->order);
-    da_int ldx = (this->order == column_major) ? nsamples : nfeat;
-    da_int tmp;
+    if ((this->order == column_major && ldX >= nsamples) ||
+        (this->order == row_major && ldX >= nfeat)) {
+    } else {
+        return da_error(this->err, da_status_invalid_array_dimension,
+                        "The leading dimension of the array X is invalid.");
+    }
 
-    da_status status = this->store_2D_array(nsamples, nfeat, X, ldx, &X_temp, &this->XUSR,
-                                            tmp, "n_samples", "n_features", "X", "ldx");
+    T *unused{nullptr};
+    da_int xld{0};
+    const T *xptr{const_cast<const T *>(X)};
+    da_status status = this->store_2D_array(nsamples, nfeat, X, ldX, &unused, &xptr, xld,
+                                            "nsamples", "nfeatures", "X", "ldx");
+
+    if (status != da_status_success) {
+        return status;
+    }
+
+    status = this->check_1D_array(nsamples, y, "nsamples", "y", 1);
     if (status != da_status_success)
         return status;
 
-    status = this->check_1D_array(nsamples, y, "n_samples", "y", 1);
-    if (status != da_status_success)
-        return status;
+    // Assign user's feature pointers
+    this->yusr = y;
+    this->y = const_cast<T *>(y);
+    this->XUSR = X;
+    this->ldXUSR = ldX;
+    // Store data: either pointer to XUSR or a fresh allocation
+    this->X = const_cast<T *>(xptr);
+    this->ldX = xld;
 
     model_trained = false;
 
     this->nfeat = nfeat;
     this->nsamples = nsamples;
     this->is_well_determined = nsamples > nfeat;
-    // Assign user's feature pointers
-    this->yusr = y;
-    // Point copy X and y also to user data
-    this->y = (T *)(y);
-    this->X = (T *)(XUSR);
 
     return da_status_success;
 }
@@ -394,21 +422,38 @@ template <typename T> da_status linear_model<T>::init_opt_method(linmod_method m
                         "Unexpectedly <optim progress factor> option not "
                         "found in the linear model option registry.");
     }
-    optstr = slv + " progress factor";
-    if (opt->opts.set(optstr, factr) != da_status_success) {
-        return da_error(opt->err, da_status_internal_error, // LCOV_EXCL_LINE
-                        "Unexpectedly linear model provided an invalid value to the <" +
-                            optstr + "> option.");
-    }
-    if (slv == "coord") {
+    if (slv == "lbfgsb") {
+        optstr = slv + " progress factor";
+        if (opt->opts.set(optstr, factr) != da_status_success) {
+            return da_error(
+                opt->err, da_status_internal_error, // LCOV_EXCL_LINE
+                "Unexpectedly linear model provided an invalid value to the <" + optstr +
+                    "> option.");
+        }
+    } else if (slv == "coord") {
         // Specific options for coord
-        optstr = slv + " skip tol";
+        optstr = "coord skip tol";
         if (opt->opts.set(optstr, tol) != da_status_success) {
             return da_error(
                 opt->err, da_status_internal_error, // LCOV_EXCL_LINE
                 "Unexpectedly linear model provided an invalid value to the <" + optstr +
                     "> option.");
         }
+        T dualgap;
+        if (this->opts.get("optim dual gap tol", dualgap) != da_status_success) {
+            return da_error(opt->err, da_status_internal_error, // LCOV_EXCL_LINE
+                            "Unexpectedly <optim dual gap tol> option not "
+                            "found in the linear model option registry.");
+        }
+        // optimality tolerance - is rescaled by <y,y>/nsamples in fit_linreg_coord(...)
+        optstr = "coord optimality tol";
+        if (opt->opts.set(optstr, dualgap) != da_status_success) {
+            return da_error(
+                opt->err, da_status_internal_error, // LCOV_EXCL_LINE
+                "Unexpectedly linear model provided an invalid value to the <" + optstr +
+                    "> option.");
+        }
+
         // Pass ledger parameters
         da_int skipmin;
         da_int skipmax;
@@ -457,38 +502,64 @@ template <typename T> da_status linear_model<T>::init_opt_method(linmod_method m
     return da_status_success;
 }
 
-template <typename T> da_status linear_model<T>::get_coef(da_int &nx, T *coef) {
+template <typename T>
+da_status linear_model<T>::get_coef(da_int &nx, T *coef, da_coef_type ctype) {
     if (!model_trained)
         return da_error(this->err, da_status_out_of_date,
                         "The data associated to the model is out of date.");
-    if (nx != ncoef) {
-        nx = ncoef;
+    if (ctype == dual)
+        if (method_id != linmod_method::cg || is_well_determined)
+            return da_error(this->err, da_status_invalid_input,
+                            "The dual coefficients are only available for "
+                            "underdetermined data and CG solver.");
+    da_int correct_dim = (ctype == primal) ? ncoef : nsamples;
+    if (nx != correct_dim) {
+        nx = correct_dim;
         return da_warn(this->err, da_status_invalid_array_dimension,
                        "The number of coefficients is wrong, correct size is " +
-                           std::to_string(ncoef) + ".");
+                           std::to_string(correct_dim) + ".");
     }
     if (coef == nullptr)
         return da_error(
             this->err, da_status_invalid_input,
             "Argument coef needs to provide a valid pointer of at least size " +
                 std::to_string(ncoef) + ".");
-
-    da_int i;
-    for (i = 0; i < ncoef; i++)
-        coef[i] = this->coef[i];
+    switch (ctype) {
+    case primal:
+        // For MSE problem or binary logistic regression, the coefficients are simply a vector
+        // For multiclass logistic regression they are a matrix, so we need to transpose appropriately for row-major data
+        if (mod == linmod_model_mse || nclass == 2) {
+            da_int i;
+            for (i = 0; i < ncoef; i++)
+                coef[i] = this->coef[i];
+        } else if (mod == linmod_model_logistic) {
+            this->copy_2D_results_array(nrow_coef, ncol_coef, this->coef.data(),
+                                        nrow_coef, coef);
+        } else {
+            return da_error(this->err, da_status_internal_error,
+                            "Unexpected model type.");
+        }
+        break;
+    case dual:
+        for (da_int i = 0; i < nsamples; i++)
+            coef[i] = this->dual_coef[i];
+        break;
+    }
 
     return da_status_success;
 }
 
 template <typename T>
 da_status linear_model<T>::evaluate_model(da_int nfeat, da_int nsamples, const T *X,
-                                          T *predictions, T *observations, T *loss) {
-    da_int i, status;
+                                          da_int ldX, T *predictions, T *observations,
+                                          T *loss) {
+    const T *X_temp{nullptr};
+    da_int ldX_temp{0};
+    T *temp{nullptr};
 
-    const T *X_temp;
-    T *utility_ptr1 = nullptr;
-    da_int ldx_temp;
-    da_int ldx = (this->order == column_major) ? nsamples : nfeat;
+    if (!model_trained)
+        return da_error(this->err, da_status_out_of_date,
+                        "The model has not been trained yet.");
 
     if (nfeat != this->nfeat)
         return da_error(this->err, da_status_invalid_input,
@@ -500,15 +571,23 @@ da_status linear_model<T>::evaluate_model(da_int nfeat, da_int nsamples, const T
     if (predictions == nullptr)
         return da_error(this->err, da_status_invalid_pointer,
                         "predictions is a null pointer.");
-    if (!model_trained)
-        return da_error(this->err, da_status_out_of_date,
-                        "The model has not been trained yet.");
 
-    da_status errstatus =
-        this->store_2D_array(nsamples, nfeat, X, ldx, &utility_ptr1, &X_temp, ldx_temp,
+    if (nsamples <= 0) {
+        return da_error(this->err, da_status_invalid_input,
+                        "The number of samples must be positive.");
+    }
+
+    if (!((this->order == column_major && ldX >= nsamples) ||
+          (this->order == row_major && ldX >= nfeat))) {
+        return da_error(this->err, da_status_invalid_array_dimension,
+                        "The leading dimension of the array X is invalid.");
+    }
+
+    da_status status =
+        this->store_2D_array(nsamples, nfeat, X, ldX, &temp, &X_temp, ldX_temp,
                              "n_samples", "n_features", "X", "ldx");
-    if (errstatus != da_status_success)
-        return errstatus;
+    if (status != da_status_success)
+        return status;
 
     // X is assumed to be of shape (nsamples, nfeat)
     // y is assumed to be of size nsamples
@@ -518,14 +597,14 @@ da_status linear_model<T>::evaluate_model(da_int nfeat, da_int nsamples, const T
 
     T alpha = 1.0, beta = 0.0;
     T aux;
-    da_int nmod;
+    da_int flag, nmod;
     std::vector<T> log_proba(0), scores(0);
     switch (mod) {
     case linmod_model_mse:
         // Call loss_mse
-        status = loss_mse(nsamples, nfeat, X_temp, this->intercept, l1reg, l2reg,
-                          this->coef.data(), observations, loss, predictions);
-        if (status != 0) {
+        flag = loss_mse(nsamples, nfeat, X_temp, ldX_temp, this->intercept, l1reg, l2reg,
+                        this->coef.data(), observations, loss, predictions);
+        if (flag != 0) {
             return da_error(this->err, da_status_incorrect_output,
                             "Unexpected error at evaluating model.");
         }
@@ -545,8 +624,8 @@ da_status linear_model<T>::evaluate_model(da_int nfeat, da_int nsamples, const T
         }
         da_std::fill(predictions, predictions + nsamples, T(0));
         if (nclass == 2) {
-            eval_feature_matrix(nmod, this->coef.data(), nsamples, X_temp, scores.data(),
-                                this->intercept, false);
+            eval_feature_matrix(nmod, this->coef.data(), nsamples, X_temp, ldX_temp,
+                                scores.data(), this->intercept, false);
             for (da_int i = 0; i < nsamples; i++)
                 scores[i] > 0 ? predictions[i] = 1 : predictions[i] = 0;
         } else if (logistic_constraint_model == logistic_constraint::rsc) {
@@ -554,16 +633,16 @@ da_status linear_model<T>::evaluate_model(da_int nfeat, da_int nsamples, const T
                          T(1));
             for (da_int k = 0; k < nclass - 1; k++) {
                 da_blas::cblas_gemv(CblasColMajor, CblasNoTrans, nsamples, nfeat, alpha,
-                                    X_temp, nsamples, &coef[k * nmod], 1, beta,
+                                    X_temp, ldX_temp, &coef[k * nmod], 1, beta,
                                     &log_proba[k * nsamples], 1);
                 if (intercept) {
-                    for (i = 0; i < nsamples; i++)
+                    for (da_int i = 0; i < nsamples; i++)
                         log_proba[k * nsamples + i] += coef[(k + 1) * nmod - 1];
                 }
-                for (i = 0; i < nsamples; i++)
+                for (da_int i = 0; i < nsamples; i++)
                     log_proba[k * nsamples + i] = exp(log_proba[k * nsamples + i]);
             }
-            for (i = 0; i < nsamples; i++) {
+            for (da_int i = 0; i < nsamples; i++) {
                 aux = 0;
                 for (da_int k = 0; k < nclass; k++) {
                     aux += log_proba[k * nsamples + i];
@@ -571,7 +650,7 @@ da_status linear_model<T>::evaluate_model(da_int nfeat, da_int nsamples, const T
                 for (da_int k = 0; k < nclass; k++)
                     log_proba[k * nsamples + i] /= aux;
             }
-            for (i = 0; i < nsamples; i++) {
+            for (da_int i = 0; i < nsamples; i++) {
                 aux = 0.0;
                 for (da_int k = 0; k < nclass; k++) {
                     if (log_proba[k * nsamples + i] > aux) {
@@ -591,7 +670,7 @@ da_status linear_model<T>::evaluate_model(da_int nfeat, da_int nsamples, const T
             }
             // Compute raw prediction = X*beta^T+intercept
             da_blas::cblas_gemm(CblasColMajor, CblasNoTrans, CblasTrans, nsamples, nclass,
-                                nfeat, 1.0, X_temp, nsamples, this->coef.data(), nclass,
+                                nfeat, 1.0, X_temp, ldX_temp, this->coef.data(), nclass,
                                 1.0, scores.data(), nsamples);
             // Iterate over predictions to pick argmax between each class
             for (da_int i = 0; i < nsamples; i++) {
@@ -612,8 +691,8 @@ da_status linear_model<T>::evaluate_model(da_int nfeat, da_int nsamples, const T
         break;
     }
 
-    if (utility_ptr1)
-        delete[] (utility_ptr1);
+    if (temp)
+        delete[] (temp);
 
     return da_status_success;
 }
@@ -640,6 +719,7 @@ template <typename T> da_status linear_model<T>::fit(da_int usr_ncoefs, const T 
     this->opts.get("alpha", this->alpha);
     this->opts.get("lambda", this->lambda);
     this->opts.get("optim method", method, method_id);
+
     this->intercept = (bool)intercept_int;
 
     if (method == "auto") {
@@ -649,7 +729,12 @@ template <typename T> da_status linear_model<T>::fit(da_int usr_ncoefs, const T 
         }
     }
     this->opts.get("optim method", method, method_id);
-
+#ifdef NO_FORTRAN
+    if (method_id == linmod_method::lbfgsb) {
+        return da_error(this->err, da_status_not_implemented, // LCOV_EXCL_LINE
+                        "LBFGSB is not available in this implementation");
+    }
+#endif
     if (this->opts.get("scaling", scalingstr, scalingint) != da_status_success) {
         return da_error( // LCOV_EXCL_LINE
             this->err, da_status_internal_error,
@@ -657,6 +742,8 @@ template <typename T> da_status linear_model<T>::fit(da_int usr_ncoefs, const T 
             "option registry.");
     }
     scaling = scaling_t(scalingint);
+    // Scaling a square matrix results in rank-defficiency, hence +intercept_int
+    is_well_determined = nsamples >= nfeat + intercept_int;
 
     // Validation should be after reading user's chosen solvers and scaling
     status = validate_options(method_id);
@@ -669,6 +756,7 @@ template <typename T> da_status linear_model<T>::fit(da_int usr_ncoefs, const T 
         ncoef = nfeat;
         if (intercept)
             ncoef += 1;
+        nrow_coef = 1, ncol_coef = ncoef;
         // Scaling
         if (scaling == scaling_t::automatic) {
             switch (method_id) {
@@ -678,27 +766,27 @@ template <typename T> da_status linear_model<T>::fit(da_int usr_ncoefs, const T 
                 if (intercept) {
                     scaling = scaling_t::centering;
                     scalingstr = "centering";
-                    break;
                 } else {
                     scaling = scaling_t::none;
                     scalingstr = "none";
-                    break;
                 }
+                break;
             case linmod_method::cholesky:
             case linmod_method::cg:
             case linmod_method::lbfgsb:
                 if (!is_well_determined && intercept) {
                     scaling = scaling_t::centering;
                     scalingstr = "centering";
-                    break;
                 } else {
                     scaling = scaling_t::none;
                     scalingstr = "none";
-                    break;
                 }
+                break;
             default:
-                scaling = scaling_t::none;
-                scalingstr = "none";
+                // Should not happen
+                return da_error( // LCOV_EXCL_LINE
+                    this->err, da_status_internal_error,
+                    "Unexpectedly an invalid optimization solver was requested.");
                 break;
             }
             // Store back the option value
@@ -772,6 +860,7 @@ template <typename T> da_status linear_model<T>::fit(da_int usr_ncoefs, const T 
                 "Descent solver.");
         } else {
             copycoefs &= usr_ncoefs >= nfeat;
+            use_dual_coefs = false;
         }
 
         try {
@@ -783,6 +872,8 @@ template <typename T> da_status linear_model<T>::fit(da_int usr_ncoefs, const T 
                 if (use_dual_coefs) {
                     for (da_int j = 0; j < nsamples; j++)
                         dual_coef[j] = coefs[j];
+                    // We need this for intercept calculation
+                    da_std::fill(coef.begin(), coef.end(), (T)0);
                 } else {
                     for (da_int j = 0; j < nfeat; j++)
                         coef[j] = coefs[j];
@@ -794,8 +885,15 @@ template <typename T> da_status linear_model<T>::fit(da_int usr_ncoefs, const T 
                         scale_warmstart();
                 }
             } else {
-                coef.resize(ncoef, (T)0);
-                dual_coef.resize(nsamples, (T)0);
+                // .resize() does not overwrite with 0s (only new elements are 0)
+                // So to not warm start when called multiple times on the same handle,
+                // we need to explicitly set to 0
+                coef.resize(ncoef);
+                da_std::fill(coef.begin(), coef.end(), (T)0);
+                if (method_id == linmod_method::cg && !is_well_determined) {
+                    dual_coef.resize(nsamples);
+                    da_std::fill(dual_coef.begin(), dual_coef.end(), (T)0);
+                }
             }
         } catch (std::bad_alloc &) {                           // LCOV_EXCL_LINE
             return da_error(this->err, da_status_memory_error, // LCOV_EXCL_LINE
@@ -869,10 +967,10 @@ template <typename T> da_status linear_model<T>::fit(da_int usr_ncoefs, const T 
                     cb_usrdata_linreg<T> *data = (cb_usrdata_linreg<T> *)udata;
                     tmp = data->matvec.data();
                 }
-                loss_mse(nsamples, nfeat, XUSR, intercept, l1regul, l2regul, coef.data(),
-                         yusr, &uloss, tmp);
+                loss_mse(nsamples, nfeat, XUSR, ldX, intercept, l1regul, l2regul,
+                         coef.data(), yusr, &uloss, tmp);
                 tmp = nullptr;
-                status = opt->set_info(da_optim_info_t::info_objective, uloss);
+                status = opt->set_info(da_linmod_info_t::linmod_info_objective, uloss);
                 if (status != da_status_success)
                     return status;
             }
@@ -891,33 +989,39 @@ template <typename T> da_status linear_model<T>::fit(da_int usr_ncoefs, const T 
         logistic_constraint_model = logistic_constraint(logistic_constraint_int);
         // y rhs is assumed to only contain values from 0 to K-1 (K being the number of classes)
         nclass = (da_int)(std::round(*std::max_element(y, y + nsamples)) + 1);
+        ncol_coef = intercept ? nfeat + 1 : nfeat;
         // Check for invalid values
         if (nclass < 2)
             return da_error(this->err, da_status_invalid_input,
                             "This solver needs at least two classes.");
+        // Get number of rows in coefficients matrix
         if (logistic_constraint_model == logistic_constraint::rsc || nclass == 2) {
-            ncoef = (nclass - 1) * nfeat;
-            if (intercept)
-                ncoef += nclass - 1;
+            nrow_coef = (nclass - 1);
         } else if (logistic_constraint_model == logistic_constraint::ssc) {
-            ncoef = nclass * nfeat;
-            if (intercept)
-                ncoef += nclass;
+            nrow_coef = nclass;
         } else {
             return da_error( // LCOV_EXCL_LINE
                 this->err, da_status_internal_error,
                 "Unexpectedly undefined logistic model constraint was requested.");
         }
+        ncoef = nrow_coef * ncol_coef;
         copycoefs = (coefs != nullptr) && (usr_ncoefs >= ncoef);
 
         try {
             if (copycoefs) {
                 coef.resize(ncoef);
                 // User provided starting coefficients, check, copy and use.
-                for (da_int j = 0; j < ncoef; j++)
-                    coef[j] = coefs[j];
+                if (this->order == column_major)
+                    for (da_int j = 0; j < ncoef; j++)
+                        coef[j] = coefs[j];
+                else
+                    ARCH::da_utils::copy_transpose_2D_array_row_to_column_major(
+                        nrow_coef, ncol_coef, coefs, ncol_coef, coef.data(), nrow_coef);
             } else {
-                coef.resize(ncoef, (T)0);
+                coef.resize(ncoef);
+                // .resize() does not overwrite with 0s (only new elements are 0)
+                // So to not perform warm start when called multiple times on the same handle, we need to explicitly set to 0
+                da_std::fill(coef.begin(), coef.end(), (T)0);
             }
         } catch (std::bad_alloc &) {                           // LCOV_EXCL_LINE
             return da_error(this->err, da_status_memory_error, // LCOV_EXCL_LINE
@@ -942,8 +1046,8 @@ template <typename T> da_status linear_model<T>::fit(da_int usr_ncoefs, const T 
 template <class T> da_status linear_model<T>::fit_linreg_coord() {
     da_status status = da_status_success;
     try {
-        udata = new stepfun_usrdata_linreg<T>(X, y, nsamples, nfeat, intercept, lambda,
-                                              alpha, std_xv.data(), scaling);
+        udata = new stepfun_usrdata_linreg<T>(X, ldX, y, nsamples, nfeat, intercept,
+                                              lambda, alpha, std_xv.data(), scaling);
     } catch (std::bad_alloc &) {                           // LCOV_EXCL_LINE
         return da_error(this->err, da_status_memory_error, // LCOV_EXCL_LINE
                         "Memory allocation error");
@@ -967,15 +1071,44 @@ template <class T> da_status linear_model<T>::fit_linreg_coord() {
                         "function pointer.");
     }
     // Add callback for optimality checks
-    if (scaling == scaling_t::none || scaling == scaling_t::centering) {
-        status = opt->add_stepchk(stepchk_linreg_sklearn<T>);
-    } else {
-        status = opt->add_stepchk(stepchk_linreg_sklearn<T>);
-    }
+    status = opt->add_stepchk(stepchk_linreg_dualgap<T>);
     if (status != da_status_success) {
         return da_error(opt->err, da_status_internal_error, // LCOV_EXCL_LINE
                         "Unexpectedly linear model provided an invalid "
                         "optimality check function pointer.");
+    }
+
+    // "coord optimality tol" is rescaled by <y,y>/nsamples
+    T yty{T(0)};
+    switch (scaling) {
+    case scaling_t::none:
+    case scaling_t::centering:
+        yty = da_blas::cblas_dot(nsamples, y, 1, y, 1);
+        break;
+    case scaling_t::scale_only:
+        yty = T(1) / T(nsamples);
+        break;
+    case scaling_t::standardize:
+        yty = T(1);
+        break;
+    default:
+        return da_error(opt->err, da_status_internal_error, // LCOV_EXCL_LINE
+                        "Unexpectedly invalid scale type was provided.");
+        break;
+    }
+
+    T tol{0};
+    const std::string optstr{"coord optimality tol"};
+    if (opt->opts.get(optstr, tol) != da_status_success) {
+        return da_error(opt->err, da_status_internal_error, // LCOV_EXCL_LINE
+                        "Unexpectedly linear model could not query the <" + optstr +
+                            "> option.");
+    }
+    tol *= yty / T(nsamples); // rescale optim tol by <y,y>/nsamples
+    if (opt->opts.set(optstr, tol) != da_status_success) {
+        return da_error(opt->err, da_status_internal_error, // LCOV_EXCL_LINE
+                        "Unexpectedly linear model provided an invalid value to the <" +
+                            optstr + "> option.");
     }
 
     // Ready to solve
@@ -995,7 +1128,8 @@ template <class T> da_status linear_model<T>::fit_linreg_coord() {
 template <class T> da_status linear_model<T>::fit_linreg_lbfgs() {
     da_status status = da_status_success;
     try {
-        udata = new cb_usrdata_linreg<T>(X, y, nsamples, nfeat, intercept, lambda, alpha);
+        udata = new cb_usrdata_linreg<T>(X, ldX, y, nsamples, nfeat, intercept, lambda,
+                                         alpha);
     } catch (std::bad_alloc &) {                           // LCOV_EXCL_LINE
         return da_error(this->err, da_status_memory_error, // LCOV_EXCL_LINE
                         "Memory allocation error");
@@ -1056,8 +1190,8 @@ template <class T> da_status linear_model<T>::fit_logreg_lbfgs() {
             "Unexpectedly undefined logistic model constraint was requested.");
     }
     try {
-        udata = new cb_usrdata_logreg<T>(X, y, nsamples, nfeat, intercept, lambda, alpha,
-                                         nclass, nparam);
+        udata = new cb_usrdata_logreg<T>(X, ldX, y, nsamples, nfeat, intercept, lambda,
+                                         alpha, nclass, nparam);
     } catch (std::bad_alloc &) {                           // LCOV_EXCL_LINE
         return da_error(this->err, da_status_memory_error, // LCOV_EXCL_LINE
                         "Memory allocation error");
@@ -1090,6 +1224,18 @@ template <typename T> da_status linear_model<T>::qr_lsq() {
     } catch (std::bad_alloc &) {                           // LCOV_EXCL_LINE
         return da_error(this->err, da_status_memory_error, // LCOV_EXCL_LINE
                         "Memory allocation error");
+    }
+    if (X == XUSR) {
+        return da_error( // LCOV_EXCL_LINE
+            this->err, da_status_internal_error,
+            "X is point to XUSR but should be a copy of it!");
+    }
+
+    if (!is_well_determined) {
+        // Update transpose X STORAGE SCHEME
+        da_blas::imatcopy('T', nsamples, nfeat, T(1), X, ldX, nfeat);
+        // update ldX
+        ldX = nfeat;
     }
 
     // Compute QR factorization
@@ -1178,7 +1324,7 @@ template <typename T> da_status linear_model<T>::fit_linreg_cg() {
                         "Internal error with CG solver");
     }
 
-    setup_xtx_xty(X, y, cg->A, cg->b);
+    setup_xtx_xty(cg->A, cg->b);
 
     // In case of providing initial coefficients we want to overwrite already initialized and filled with 0 cg->coef vector
     // otherwise we leave it filled with 0 as a starting point.
@@ -1217,9 +1363,12 @@ template <typename T> da_status linear_model<T>::fit_linreg_cg() {
         for (da_int i = 0; i < ncoef; i++)
             coef[i] = cg->coef[i];
     } else {
+        for (da_int i = 0; i < nsamples; i++) {
+            dual_coef[i] = cg->coef[i];
+        }
         // Compute coefficient from dual coefficient
-        da_blas::cblas_gemv(CblasColMajor, CblasTrans, nsamples, nfeat, cg->alpha, X,
-                            nsamples, cg->coef.data(), 1, cg->beta, coef.data(), 1);
+        da_blas::cblas_gemv(CblasColMajor, CblasTrans, nsamples, nfeat, cg->alpha, X, ldX,
+                            cg->coef.data(), 1, cg->beta, coef.data(), 1);
     }
 
     return da_status_success;
@@ -1239,8 +1388,8 @@ template <typename T> da_status linear_model<T>::fit_linreg_svd() {
     da_int info = 1;
     char jobz = 'S';
 
-    da::gesdd(&jobz, &nsamples, &nfeat, X, &nsamples, svd->S.data(), svd->U.data(),
-              &nsamples, svd->Vt.data(), &svd->min_order, svd->work.data(), &svd->lwork,
+    da::gesdd(&jobz, &nsamples, &nfeat, X, &ldX, svd->S.data(), svd->U.data(), &nsamples,
+              svd->Vt.data(), &svd->min_order, svd->work.data(), &svd->lwork,
               svd->iwork.data(), &info);
     if (info != 0) {
         return da_error( // LCOV_EXCL_LINE
@@ -1289,7 +1438,7 @@ template <typename T> da_status linear_model<T>::fit_linreg_cholesky() {
                         "Memory allocation error");
     }
 
-    setup_xtx_xty(X, y, cholesky->A, cholesky->b);
+    setup_xtx_xty(cholesky->A, cholesky->b);
 
     da_int info = 1;
     char uplo = 'U';
@@ -1319,8 +1468,8 @@ template <typename T> da_status linear_model<T>::fit_linreg_cholesky() {
     } else {
         // Compute coefficient from dual coefficient
         da_blas::cblas_gemv(CblasColMajor, CblasTrans, nsamples, nfeat, cholesky->alpha,
-                            X, nsamples, cholesky->b.data(), 1, cholesky->beta,
-                            coef.data(), 1);
+                            X, ldX, cholesky->b.data(), 1, cholesky->beta, coef.data(),
+                            1);
     }
 
     return da_status_success;
@@ -1395,7 +1544,11 @@ template <typename T> da_status linear_model<T>::choose_method() {
             this->opts.set("optim method", "coord", da_options::solver);
         break;
     case (linmod_model_logistic):
-        // Here we choose L-BFGS-B over Coordinate Descent
+// Here we choose L-BFGS-B over Coordinate Descent
+#ifdef NO_FORTRAN
+        return da_error(this->err, da_status_not_implemented, // LCOV_EXCL_LINE
+                        "Logistic regression is not available in this implementation");
+#endif
         if (alpha == (T)0)
             // L-BFGS-B handles L2 regularization
             this->opts.set("optim method", "lbfgs", da_options::solver);
@@ -1456,6 +1609,8 @@ template <typename T> da_status linear_model<T>::choose_method() {
      *
      */
 template <typename T> da_status linear_model<T>::model_scaling(da_int method_id) {
+    // Note: scaling does NOT take into account storage scheme and assumes its column major
+
     // For SVD and QR we still will want to copy X and y, even for scaling == none
     if (scaling == scaling_t::none && method_id != linmod_method::svd &&
         method_id != linmod_method::qr && method_id != linmod_method::coord) {
@@ -1463,6 +1618,11 @@ template <typename T> da_status linear_model<T>::model_scaling(da_int method_id)
     }
 
     const bool use_xv = method_id == linmod_method::coord; // for now only coord uses xv
+
+    // These are setup according on how to interpret X and XUSR
+    da_int nrow = nsamples, ncol = nfeat;
+    da_axis axis = da_axis::da_axis_col;
+    da_order order = da_order::column_major;
 
     // coord with no scalling we still need to store column norms squared
     if (scaling == scaling_t::none && method_id == linmod_method::coord) {
@@ -1474,55 +1634,53 @@ template <typename T> da_status linear_model<T>::model_scaling(da_int method_id)
         }
         // set std_xv[j] = <X[j], X[j]>
         for (da_int j = 0; j < nfeat; j++) {
-            std_xv[j] =
-                da_blas::cblas_dot(nsamples, &X[j * nsamples], 1, &X[j * nsamples], 1);
+            std_xv[j] = da_blas::cblas_dot(nsamples, &X[j * ldX], 1, &X[j * ldX], 1);
         }
         return da_status_success;
     }
 
-    if (X != XUSR ||
-        y != yusr) { /// Multi call to solver no change? intercept change? fitted=T?
-        // Expecting both to match!
-        return da_error(this->err, da_status_internal_error, // LCOV_EXCL_LINE
-                        "X and y are not pointing to user data.");
-    }
+    // All other solvers need a modify-able copy of XUSR
+
+    // X != XUSR means that preprocessing of XUSR has already started and scaling
+    // is not the first to have made the copy of XUSR. Use directly X
+    bool copy_from_XUSR = X == XUSR; // Remove once store_2D_array is removed
+    bool copy_from_yusr = y == yusr;
     try {
         std_scales.assign(nfeat + 1, T(0));
         std_shifts.assign(nfeat + 1, T(0));
         if (use_xv) {
             std_xv.assign(nfeat, T(0));
         }
-        X = new T[nsamples * nfeat];
-        y = new T[nsamples];
+        if (X == XUSR) {
+            // allocate if required
+            X = new T[nsamples * nfeat];
+            ldX = nsamples;
+        }
+        if (y == yusr) {
+            // allocate if required
+            y = new T[nsamples];
+        }
     } catch (std::bad_alloc &) {                           // LCOV_EXCL_LINE
         return da_error(this->err, da_status_memory_error, // LCOV_EXCL_LINE
                         "Memory allocation error.");
     }
-    // Transpose matrix for undetermined QR case
-    da_int nrow = nsamples, ncol = nfeat;
-    da_axis axis = da_axis_col; // Variables used later when computing standardization
-    if (method_id == linmod_method::qr && !is_well_determined) {
-        for (da_int i = 0; i < nsamples; i++)
-            for (da_int j = 0; j < nfeat; j++)
-                X[i * nfeat + j] = XUSR[j * nsamples + i];
-        is_transposed = true;
-        nrow = nfeat;
-        ncol = nsamples;
-        axis = da_axis_row;
+
+    // Here X either points to a fresh memory or to a pre-processed XUSR
+    // From this point on X needs to allocated any may be overwritten!
+
+    // Copy XUSR if we have not already
+    // X could already have a pre-processed copy of XUSR, also
+    // if we transposed the matrix, data is already copied into X
+    if (copy_from_XUSR) {
+        da_blas::omatcopy('N', nsamples, nfeat, T(1), XUSR, ldXUSR, X, ldX);
     }
-    // Copy data. If we transposed the matrix, data is already copied into X
-    if (!is_transposed) {
-        if (memcpy(X, XUSR, nsamples * nfeat * sizeof(T)) != X) {
+    if (copy_from_yusr) {
+        if (memcpy(y, yusr, nsamples * sizeof(T)) != y) {
             return da_error(this->err, da_status_internal_error, // LCOV_EXCL_LINE
                             "Could not copy data from user.");
         }
     }
-    if (memcpy(y, yusr, nsamples * sizeof(T)) != y) {
-        return da_error(this->err, da_status_internal_error, // LCOV_EXCL_LINE
-                        "Could not copy data from user.");
-    }
 
-    // Without this it proceeds to: else if (!standardize && intercept)
     if (scaling == scaling_t::none) {
         return da_status_success;
     }
@@ -1534,16 +1692,16 @@ template <typename T> da_status linear_model<T>::model_scaling(da_int method_id)
             if (use_xv) {
                 // set std_xv[j] = <X[j], X[j]>
                 for (da_int j = 0; j < nfeat; j++) {
-                    std_xv[j] = da_blas::cblas_dot(nsamples, &X[j * nsamples], 1,
-                                                   &X[j * nsamples], 1);
+                    std_xv[j] =
+                        da_blas::cblas_dot(nsamples, &X[j * ldX], 1, &X[j * ldX], 1);
                 }
             }
             // Data copied XUSR -> X and yusr -> y, set-up scaling vectors and exit
             return da_status_success;
         }
         // center data
-        if (ARCH::da_basic_statistics::standardize(column_major, axis, nrow, ncol, X,
-                                                   nrow, nrow, 0, std_shifts.data(),
+        if (ARCH::da_basic_statistics::standardize(order, axis, nrow, ncol, X, ldX, nrow,
+                                                   0, std_shifts.data(),
                                                    (T *)nullptr) != da_status_success) {
             return da_error(this->err, da_status_internal_error, // LCOV_EXCL_LINE
                             "Call to standardize on feature matrix unexpectedly failed.");
@@ -1559,8 +1717,7 @@ template <typename T> da_status linear_model<T>::model_scaling(da_int method_id)
         if (use_xv) {
             // set std_xv[j] = <X[j], X[j]>
             for (da_int j = 0; j < nfeat; j++) {
-                std_xv[j] = da_blas::cblas_dot(nsamples, &X[j * nsamples], 1,
-                                               &X[j * nsamples], 1);
+                std_xv[j] = da_blas::cblas_dot(nsamples, &X[j * ldX], 1, &X[j * ldX], 1);
             }
         }
         return da_status_success;
@@ -1580,7 +1737,7 @@ template <typename T> da_status linear_model<T>::model_scaling(da_int method_id)
             std_xv.assign(nfeat, T(1));
         }
         if (ARCH::da_basic_statistics::standardize(
-                column_major, axis, nrow, ncol, X, nrow, nrow, 0, std_shifts.data(),
+                order, axis, nrow, ncol, X, ldX, nrow, 0, std_shifts.data(),
                 std_scales.data()) != da_status_success) {
             return da_error(this->err, da_status_internal_error, // LCOV_EXCL_LINE
                             "Call to standardize on feature matrix unexpectedly failed.");
@@ -1599,7 +1756,7 @@ template <typename T> da_status linear_model<T>::model_scaling(da_int method_id)
             sqdof = (T)0;
             T xcj = T(0);
             for (da_int i = 0; i < nsamples; ++i) {
-                T xj = is_transposed ? X[i * nfeat + j] : X[j * nsamples + i];
+                T xj = X[j * ldX + i];
                 sqdof += xj * xj;
                 xcj += xj;
             }
@@ -1612,16 +1769,14 @@ template <typename T> da_status linear_model<T>::model_scaling(da_int method_id)
                 // These are used for updating the coefficients (betas).
                 std_xv[j] = sqdof / (sqdof - xcj);
             }
-
-            sqdof =
-                sqrt(sqdof -
-                     xcj); // This is formula for standard deviation (after rearrangement)
+            // This is the formula for standard deviation (after rearrangement)
+            sqdof = sqrt(sqdof - xcj);
             std_scales[j] = sqdof; // same as with intercept: stdev using 1/nsamples
             std_shifts[j] = (T)0;  // zero
         }
-        if (ARCH::da_basic_statistics::standardize(
-                column_major, axis, nrow, ncol, X, nrow, nrow, 0, (T *)nullptr,
-                std_scales.data()) != da_status_success) {
+        if (ARCH::da_basic_statistics::standardize(order, axis, nrow, ncol, X, ldX, nrow,
+                                                   0, (T *)nullptr, std_scales.data()) !=
+            da_status_success) {
             return da_error(this->err, da_status_internal_error, // LCOV_EXCL_LINE
                             "Call to standardize on feature matrix unexpectedly failed.");
         }
@@ -1640,8 +1795,8 @@ template <typename T> da_status linear_model<T>::model_scaling(da_int method_id)
     } else if (!standardize && intercept) {
         // Intercept -> shift and scale X
         if (use_xv) {
-            if (ARCH::da_basic_statistics::variance(column_major, axis, nrow, ncol, X,
-                                                    nrow, nrow, std_shifts.data(),
+            if (ARCH::da_basic_statistics::variance(order, axis, nrow, ncol, X, ldX, nrow,
+                                                    std_shifts.data(),
                                                     std_xv.data()) != da_status_success) {
                 return da_error(
                     this->err, da_status_internal_error, // LCOV_EXCL_LINE
@@ -1650,7 +1805,7 @@ template <typename T> da_status linear_model<T>::model_scaling(da_int method_id)
         }
         std_scales.assign(nfeat + 1, sqrt(T(nsamples)));
         if (ARCH::da_basic_statistics::standardize(
-                column_major, axis, nrow, ncol, X, nrow, 1, 0, std_shifts.data(),
+                order, axis, nrow, ncol, X, ldX, 1, 0, std_shifts.data(),
                 std_scales.data()) != da_status_success) {
             return da_error(this->err, da_status_internal_error, // LCOV_EXCL_LINE
                             "Call to standardize on feature matrix unexpectedly failed.");
@@ -1661,7 +1816,7 @@ template <typename T> da_status linear_model<T>::model_scaling(da_int method_id)
         std_scales[nfeat] = T(0);
         std_shifts[nfeat] = T(0);
         if (ARCH::da_basic_statistics::variance(
-                column_major, da_axis_col, nsamples, 1, y, nsamples, nsamples,
+                order, da_axis_col, nsamples, 1, y, nsamples, nsamples,
                 &std_shifts[nfeat], &std_scales[nfeat]) != da_status_success) {
             return da_error(                         // LCOV_EXCL_LINE
                 this->err, da_status_internal_error, // LCOV_EXCL_LINE
@@ -1679,9 +1834,9 @@ template <typename T> da_status linear_model<T>::model_scaling(da_int method_id)
         for (da_int j = 0; j < nfeat; ++j) {
             T xjdot = T(0);
             for (da_int i = 0; i < nsamples; ++i) {
-                T xj = is_transposed ? X[i * nfeat + j] : X[j * nsamples + i];
+                T xj = X[j * ldX + i];
                 xjdot += xj * xj;
-                X[j * nsamples + i] /= sqrtn;
+                X[j * ldX + i] /= sqrtn;
             }
             if (use_xv) {
                 // These are used for updating the coefficients (betas).
@@ -1732,53 +1887,55 @@ template <typename T> void linear_model<T>::revert_scaling(void) {
 }
 
 /* Function used at the beginning of cholesky and cg solver to get X'X (or XX') and X'y (or not)
-    X_input and y_input is data provided by user, A and b are outputs that are later used to
-    solve system of linear equations Ax=b where x is coefficient matrix. */
+    X and y are data provided by user (in the handle), A and b are outputs that are later used to
+    solve system of linear equations Ax=b where x is coefficient vector.
+    This function assumes that X is in column-major format.
+*/
 template <typename T>
-void linear_model<T>::setup_xtx_xty(const T *X_input, const T *y_input, std::vector<T> &A,
-                                    std::vector<T> &b) {
+void linear_model<T>::setup_xtx_xty(std::vector<T> &A, std::vector<T> &b) {
     if (is_well_determined) {
         // Compute X'X
         da_blas::cblas_syrk(CblasColMajor, CblasUpper, CblasTrans, nfeat, nsamples,
-                            (T)1.0, X_input, nsamples, (T)0.0, A.data(), ncoef);
+                            (T)1.0, X, ldX, (T)0.0, A.data(), ncoef);
         /* In case of intercept, the last column of X'X needs to be filled.
             Each row of that column is equal to the sum of entries of respective
             column of original X matrix */
         if (intercept) {
             da_int end = ncoef * nfeat;
-            const T *X_ptr = X_input;
-            for (da_int i = 0; i < nfeat; i++, X_ptr += nsamples) {
+            const T *Xptr = X;
+            for (da_int i = 0; i < nfeat; i++, Xptr += ldX) {
 #pragma omp simd
                 for (da_int j = 0; j < nsamples; j++)
-                    A[end + i] += X_ptr[j];
+                    A[end + i] += Xptr[j];
             }
             // The last entry is the number of rows in X
             A[ncoef * ncoef - 1] = nsamples;
         }
 
         // Add lambda on diagonal
-        if (this->lambda > 0)
+        if (lambda > 0)
             for (da_int i = 0; i < nfeat; i++)
-                A[i * ncoef + i] += this->lambda;
+                A[i * ncoef + i] += lambda;
 
         // Compute X'y
-        da_blas::cblas_gemv(CblasColMajor, CblasTrans, nsamples, nfeat, (T)1.0, X_input,
-                            nsamples, y_input, 1, (T)0.0, b.data(), 1);
+        da_blas::cblas_gemv(CblasColMajor, CblasTrans, nsamples, nfeat, (T)1.0, X, ldX, y,
+                            1, (T)0.0, b.data(), 1);
         if (intercept) {
 #pragma omp simd
             for (da_int i = 0; i < nsamples; i++)
-                b[nfeat] += y_input[i];
+                b[nfeat] += y[i];
         }
         // In case of underdetermined system, use Moore-Penrose pseudoinverse
     } else {
         // Compute XX'
         da_blas::cblas_syrk(CblasColMajor, CblasUpper, CblasNoTrans, nsamples, nfeat,
-                            (T)1.0, X_input, nsamples, (T)0.0, A.data(), nsamples);
+                            (T)1.0, X, ldX, (T)0.0, A.data(), nsamples);
 
         // Add lambda on diagonal
+#pragma omp simd
         for (da_int i = 0; i < nsamples; i++) {
-            A[i * nsamples + i] += this->lambda;
-            b[i] = y_input[i];
+            A[i * nsamples + i] += lambda;
+            b[i] = y[i];
         }
     }
 }

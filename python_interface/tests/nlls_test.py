@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (C) 2024-2025 Advanced Micro Devices, Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
 # are permitted provided that the following conditions are met:
@@ -27,6 +27,10 @@
 import numpy as np
 import pytest
 from aoclda.nonlinear_model import nlls
+
+@pytest.fixture(scope="function")
+def no_fortran(request):
+    return request.config.no_fortran
 
 # Common functions
 # Attempts to fit the model y_i = x_1 e^(x_2 t_i)
@@ -88,8 +92,11 @@ def J_fail(x, r, data) -> int:
 
 
 @pytest.mark.parametrize("opt_params", [True, False])
-def test_functionality(opt_params):
+def test_functionality(no_fortran, opt_params):
     """Test correct functionality while solving a simple problem"""
+    if no_fortran:
+        pytest.skip("Skipping test due to no_fortran flag")
+
     numpy_precision = np.float32
     n_coef = 2
     n_res = 5
@@ -118,8 +125,11 @@ def test_functionality(opt_params):
 
 
 @pytest.mark.parametrize("numpy_order, use_fd", [("C", False), ("C", True), ("F", False)])
-def test_functionality_order(numpy_order, use_fd):
+def test_functionality_order(no_fortran, numpy_order, use_fd):
     """Test correct functionality while solving a simple problem"""
+    if no_fortran:
+        pytest.skip("Skipping test due to no_fortran flag")
+
     if use_fd:
         tol = 1e-4
         abs_gtol = 1e-7
@@ -165,8 +175,11 @@ def test_functionality_order(numpy_order, use_fd):
 # Interface checks
 
 
-def test_iface_too_tight():
+def test_iface_too_tight(no_fortran):
     """Finite difference test tolerance too tight"""
+    if no_fortran:
+        pytest.skip("Skipping test due to no_fortran flag")
+
     tol = 1e-10
     n_coef = 2
     n_res = 5
@@ -188,7 +201,10 @@ def test_iface_too_tight():
             "Did not catch the expected exception for FLOAT test")
 
 
-def test_iface_weights():
+def test_iface_weights(no_fortran):
+    if no_fortran:
+        pytest.skip("Skipping test due to no_fortran flag")
+
     n_coef = 2
     n_res = 5
     w = 0.12 * np.array([1, 1, 1, 1, 1], dtype=np.float32)
@@ -207,7 +223,10 @@ def test_iface_weights():
             "Did not catch the expected exception for FLOAT test")
 
 
-def test_iface_bad_weights():
+def test_iface_bad_weights(no_fortran):
+    if no_fortran:
+        pytest.skip("Skipping test due to no_fortran flag")
+
     n_coef = 2
     n_res = 5
     x = np.array([2.5, 0.25])
@@ -225,7 +244,10 @@ def test_iface_bad_weights():
             "Did not catch the expected exception for FLOAT test")
 
 
-def test_iface_bounds():
+def test_iface_bounds(no_fortran):
+    if no_fortran:
+        pytest.skip("Skipping test due to no_fortran flag")
+
     n_coef = 2
     n_res = 5
     w = 0.12 * np.array([1, 1, 1, 1, 1])
@@ -244,7 +266,10 @@ def test_iface_bounds():
             "Did not catch the expected exception for FLOAT test")
 
 
-def test_iface_wrong_option():
+def test_iface_wrong_option(no_fortran):
+    if no_fortran:
+        pytest.skip("Skipping test due to no_fortran flag")
+
     n_coef = 2
     n_res = 5
     w = 0.12 * np.array([1, 1, 1, 1, 1])
@@ -263,7 +288,10 @@ def test_iface_wrong_option():
             "Did not catch the expected exception")
 
 
-def test_iface_x():
+def test_iface_x(no_fortran):
+    if no_fortran:
+        pytest.skip("Skipping test due to no_fortran flag")
+
     n_coef = 2
     n_res = 5
     x = np.array([2.5, 0.25], dtype=np.float32)
@@ -283,7 +311,10 @@ def test_iface_x():
             "Did not catch the expected exception")
 
 
-def test_warning():
+def test_warning(no_fortran):
+    if no_fortran:
+        pytest.skip("Skipping test due to no_fortran flag")
+
     tol = 1e-7
     n_coef = 2
     n_res = 5
@@ -299,7 +330,10 @@ def test_warning():
         ndf.fit(x, exp_r, exp_J, exp_Hr, data=exp_data,
                 abs_gtol=1e-7, gtol=1.e-9, maxit=1)
 
-def test_unsupported_type():
+def test_unsupported_type(no_fortran):
+    if no_fortran:
+        pytest.skip("Skipping test due to no_fortran flag")
+
     tol = 1e-7
     n_coef = 2
     n_res = 5
@@ -317,7 +351,10 @@ def test_unsupported_type():
     with pytest.raises(ValueError):
         ndf.fit(x, exp_r)
 
-def test_nan():
+def test_nan(no_fortran):
+    if no_fortran:
+        pytest.skip("Skipping test due to no_fortran flag")
+
     abs_gtol = 1e-7
     gtol = 1.e-9
     maxit = 20

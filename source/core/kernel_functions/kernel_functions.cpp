@@ -197,7 +197,7 @@ Also for RBF we can avoid repeatable creation of work arrays
 Helper function to compute gemm/syrk and transpose
 */
 template <typename T>
-inline void fill_upper_traingular(da_order order, da_int m, T *D, da_int ldd) {
+inline void fill_upper_triangular(da_order order, da_int m, T *D, da_int ldd) {
     if (order == column_major) {
         for (da_int i = 0; i < m; i++)
             for (da_int j = i + 1; j < m; j++)
@@ -220,7 +220,7 @@ inline void kernel_setup(da_order order, da_int m, da_int n, da_int k, const T *
         da_blas::cblas_syrk(cblas_order, CblasUpper, CblasNoTrans, m, k, gamma, X, ldx,
                             0.0, D, ldd);
         // After syrk D matrix is upper triangular, this loop is to make D symmetric
-        fill_upper_traingular(order, m, D, ldd);
+        fill_upper_triangular(order, m, D, ldd);
     } else {
         da_blas::cblas_gemm(cblas_order, CblasNoTrans, CblasTrans, m, n, k, gamma, X, ldx,
                             Y, ldy, 0.0, D, ldd);
@@ -242,7 +242,7 @@ void rbf_kernel_internal(da_order order, da_int m, da_int n, da_int k, const T *
     // If X==Y then result of euclidean_distance() is upper triangular matrix D.
     // This loop is to make D symmetric matrix.
     if (X_is_Y) {
-        fill_upper_traingular(order, m, D, ldd);
+        fill_upper_triangular(order, m, D, ldd);
     }
     // Exponentiate all the entries in the matrix
     if (order == column_major) {
@@ -404,9 +404,9 @@ template void sigmoid_kernel_internal<double>(da_order order, da_int m, da_int n
                                               da_int ldd, double gamma, double coef0,
                                               bool X_is_Y);
 
-template void fill_upper_traingular<float>(da_order order, da_int m, float *D,
+template void fill_upper_triangular<float>(da_order order, da_int m, float *D,
                                            da_int ldd);
-template void fill_upper_traingular<double>(da_order order, da_int m, double *D,
+template void fill_upper_triangular<double>(da_order order, da_int m, double *D,
                                             da_int ldd);
 
 template void kernel_setup<float>(da_order order, da_int m, da_int n, da_int k,

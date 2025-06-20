@@ -202,9 +202,11 @@ TYPED_TEST(DBSCANTest, ErrorExits) {
     EXPECT_EQ(da_dbscan_set_data(handle, n_samples, n_features, A.data(), lda),
               da_status_success);
     EXPECT_EQ(da_dbscan_compute<TypeParam>(handle), da_status_invalid_option);
-    s1 = "brute";
+    s1 = "brute parallel";
     std::string s2 = "Minkowski";
     EXPECT_EQ(da_options_set_string(handle, "algorithm", s1.c_str()), da_status_success);
+    EXPECT_EQ(da_options_set(handle, "min samples", (da_int)2), da_status_success);
+    EXPECT_EQ(da_options_set(handle, "eps", (TypeParam)20.0), da_status_success);
     EXPECT_EQ(da_options_set_string(handle, "metric", s2.c_str()), da_status_success);
     EXPECT_EQ(da_dbscan_set_data(handle, n_samples, n_features, A.data(), lda),
               da_status_success);
@@ -244,11 +246,11 @@ TYPED_TEST(DBSCANTest, ErrorExits) {
     EXPECT_EQ(da_handle_get_result_int(handle, da_dbscan_labels, &dim, results_arr_int),
               da_status_invalid_array_dimension);
     EXPECT_EQ(dim, 4);
-    dim = 0;
-    //EXPECT_EQ(da_handle_get_result_int(handle, da_dbscan_core_sample_indices, &dim,
-    //                                   results_arr_int),
-    //          da_status_invalid_array_dimension);
-    //EXPECT_EQ(dim, 0);
+    dim = 1;
+    EXPECT_EQ(da_handle_get_result_int(handle, da_dbscan_core_sample_indices, &dim,
+                                       results_arr_int),
+              da_status_invalid_array_dimension);
+    EXPECT_EQ(dim, 4);
 
     da_handle_destroy(&handle);
 }
