@@ -118,10 +118,10 @@ The following options are supported.
    :escape: ~
    :header: "Option name", "Type", "Default", "Description", "Constraints"
 
-   "power", "real (double)", ":math:`r=2.0`", "The power of the Minkowski metric used (reserved for future use).", ":math:`0 \le r`"
-   "metric", "string", ":math:`s=` `euclidean`", "Choice of metric used to compute pairwise distances (reserved for future use).", ":math:`s=` `euclidean`, `manhattan`, `minkowski`, or `sqeuclidean`."
-   "algorithm", "string", ":math:`s=` `brute`", "Choice of algorithm (reserved for future use).", ":math:`s=` `auto`, `ball tree`, `brute`, `brute parallel`, or `kd tree`."
-   "leaf size", "integer", ":math:`i=30`", "Leaf size for KD tree or ball tree (reserved for future use).", ":math:`1 \le i`"
+   "power", "real (double)", ":math:`r=2.0`", "The power of the Minkowski metric used.", ":math:`0 \le r`"
+   "metric", "string", ":math:`s=` `euclidean`", "Choice of metric used to compute pairwise distances.", ":math:`s=` `euclidean`, `manhattan`, `minkowski`, or `sqeuclidean`."
+   "algorithm", "string", ":math:`s=` `auto`", "Choice of algorithm.", ":math:`s=` `auto`, `brute`, or `kd tree`."
+   "leaf size", "integer", ":math:`i=30`", "Leaf size for k-d tree.", ":math:`1 \le i`"
    "eps", "real (double)", ":math:`r=10^{-4}`", "Maximum distance for two samples to be considered in each other's neighborhood.", ":math:`0 \le r`"
    "min samples", "integer", ":math:`i=5`", "Minimum number of neighborhood samples for a core point.", ":math:`1 \le i`"
    "check data", "string", ":math:`s=` `no`", "Check input data for NaNs prior to performing computation.", ":math:`s=` `no`, or `yes`."
@@ -245,12 +245,11 @@ The following options are supported.
 
    "weights", "string", ":math:`s=` `uniform`", "Weight function used to compute the k-nearest neighbors.", ":math:`s=` `distance`, or `uniform`."
    "metric", "string", ":math:`s=` `euclidean`", "Metric used to compute the pairwise distance matrix.", ":math:`s=` `cityblock`, `cosine`, `euclidean`, `l1`, `l2`, `manhattan`, `minkowski`, or `sqeuclidean`."
-   "algorithm", "string", ":math:`s=` `brute`", "Algorithm used to compute the k-nearest neighbors.", ":math:`s=` `brute`."
+   "algorithm", "string", ":math:`s=` `auto`", "Algorithm used to compute the k-nearest neighbors.", ":math:`s=` `auto`, `brute`, or `kd tree`."
    "minkowski parameter", "real (double)", ":math:`r=2`", "Minkowski parameter for metric used for the computation of k-nearest neighbors.", ":math:`0 < r`"
    "number of neighbors", "integer", ":math:`i=5`", "Number of neighbors considered for k-nearest neighbors.", ":math:`1 \le i`"
    "check data", "string", ":math:`s=` `no`", "Check input data for NaNs prior to performing computation.", ":math:`s=` `no`, or `yes`."
    "storage order", "string", ":math:`s=` `column-major`", "Whether data is supplied and returned in row- or column-major order.", ":math:`s=` `c`, `column-major`, `f`, `fortran`, or `row-major`."
-
 
 .. _opts_supportvectormachines:
 
@@ -265,6 +264,7 @@ The following options are supported.
 
    "kernel", "string", ":math:`s=` `rbf`", "Kernel function to use for the calculations.", ":math:`s=` `linear`, `poly`, `polynomial`, `rbf`, or `sigmoid`."
    "coef0", "real (double)", ":math:`r=0`", "Constant in 'polynomial' and 'sigmoid' kernels.", "There are no constraints on :math:`r`."
+   "cache size", "real (double)", ":math:`r=200`", "Size of the kernel cache in MB. The default value is 200MB.", ":math:`0 \le r`"
    "gamma", "real (double)", ":math:`r=-1`", "Parameter for 'rbf', 'polynomial', and 'sigmoid' kernels. If the value is less than 0, it is set to 1/(n_features * Var(X)).", ":math:`-1 \le r`"
    "epsilon", "real (double)", ":math:`r=0.1`", "Defines the tolerance for errors in predictions by creating an acceptable margin (tube) within which errors are not penalized. Applies to SVR", ":math:`0 \le r`"
    "tau", "real (double)", ":math:`r=\varepsilon`", "Numerical stability parameter used in working set selection when kernel is not positive semi definite.", ":math:`0 \le r`"

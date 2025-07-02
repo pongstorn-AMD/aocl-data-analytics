@@ -29,16 +29,18 @@ aoclda.metrics module
 
 import numpy as np
 from ._aoclda.metrics import (pybind_pairwise_distances)
+from ._internal_utils import check_convert_data
+
 
 def pairwise_distances(X, Y=None, metric="euclidean", p=2.0):
     """
     Pairwise distance metrics.
 
     Args:
-        X (numpy.ndarray): The feature matrix for which the distance matrix needs to be computed.
+        X (array-like): The feature matrix for which the distance matrix needs to be computed.
             Its shape is (n_samples_X, n_features).
 
-        Y (numpy.ndarray, optional): The optional second feature matrix for which the distance
+        Y (array-like, optional): The optional second feature matrix for which the distance
             matrix needs to be computed. Its shape is (n_samples_Y, n_features).
 
         metric (str, optional): The type of metric used to compute the distance matrix. It can take
@@ -55,6 +57,9 @@ def pairwise_distances(X, Y=None, metric="euclidean", p=2.0):
         (n_samples_X, n_samples_X), if Y is None and the distance matrix for the rows
         of X is required.
     """
+    X = check_convert_data(X)
+    if Y is not None:
+        Y = check_convert_data(Y)
     if X.dtype == "float32":
         p = np.float32(p)
     else:

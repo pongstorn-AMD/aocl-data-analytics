@@ -170,8 +170,6 @@ add_executable(kmeans_public kmeans/kmeans_public.cpp)
 # ############ DBSCAN ################
 # ##############################################################################
 add_executable(dbscan_public dbscan/dbscan_public.cpp)
-add_executable(dbscan_internal dbscan/dbscan_internal.cpp)
-target_link_libraries(dbscan_internal PRIVATE ${BLAS})
 
 # ##############################################################################
 # ######### Optimization #############
@@ -205,10 +203,15 @@ add_executable(interval_map_internal data_management/interval_map_internal.cpp)
 add_executable(interval_set_internal data_management/interval_set_internal.cpp)
 
 # ##############################################################################
-# ############# knn ##################
+# ############# nearest neighbors ##################
 # ##############################################################################
-add_executable(knn_public knn/knn_public.cpp)
+add_executable(knn_public nearest_neighbors/knn_public.cpp)
 target_link_libraries(knn_public PRIVATE aocl-da ${BLAS})
+add_executable(kdtree_internal nearest_neighbors/kdtree_internal.cpp)
+add_executable(radius_neighbors_internal
+               nearest_neighbors/radius_neighbors_internal.cpp)
+add_executable(k_neighbors_internal nearest_neighbors/k_neighbors_internal.cpp)
+target_link_libraries(radius_neighbors_internal PRIVATE ${BLAS})
 
 # ##############################################################################
 # ######### Kernel function ###########
@@ -242,7 +245,9 @@ set(GTEST_INTERNAL
     svm_internal
     miscellaneous_internal
     da_vector_internal
-    dbscan_internal
+    radius_neighbors_internal
+    k_neighbors_internal
+    kdtree_internal
     utilities_internal)
 set(INDEP_INTERNAL printf_debug_internal lbfgsb_rc_internal
                    lbfgsb_fcomm_internal)

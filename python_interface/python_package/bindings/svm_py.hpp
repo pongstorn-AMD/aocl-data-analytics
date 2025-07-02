@@ -73,7 +73,7 @@ class py_svm : public pyda_handle {
 
     template <typename T>
     void common_fit(py::array_t<T> &X, py::array_t<T> &y, T gamma, T coef0, T tol,
-                    std::optional<T> tau) {
+                    T cache_size, std::optional<T> tau) {
         // floating point optional parameters are defined here since we cannot define those in the constructor (no template param)
         da_status status;
         da_int ldx;
@@ -83,6 +83,8 @@ class py_svm : public pyda_handle {
         status = da_options_set(handle, "coef0", coef0);
         exception_check(status);
         status = da_options_set(handle, "tolerance", tol);
+        exception_check(status);
+        status = da_options_set(handle, "cache size", cache_size);
         exception_check(status);
         if (tau.has_value()) {
             status = da_options_set(handle, "tau", tau.value());
@@ -398,13 +400,13 @@ class py_svc : public py_svm {
 
     template <typename T>
     void fit(py::array_t<T> X, py::array_t<T> y, std::optional<T> tau, T C = 1.0,
-             T gamma = 1, T coef0 = 0.0, T tol = 0.001) {
+             T gamma = 1, T coef0 = 0.0, T tol = 0.001, T cache_size = 200) {
         // floating point optional parameters are defined here since we cannot define those in the constructor (no template param)
         da_status status;
 
         status = da_options_set(handle, "C", C);
         exception_check(status);
-        common_fit(X, y, gamma, coef0, tol, tau);
+        common_fit(X, y, gamma, coef0, tol, cache_size, tau);
     }
 };
 
@@ -421,7 +423,8 @@ class py_svr : public py_svm {
 
     template <typename T>
     void fit(py::array_t<T> X, py::array_t<T> y, std::optional<T> tau, T C = 1.0,
-             T epsilon = 0.1, T gamma = 1, T coef0 = 0.0, T tol = 0.001) {
+             T epsilon = 0.1, T gamma = 1, T coef0 = 0.0, T tol = 0.001,
+             T cache_size = 200) {
         // floating point optional parameters are defined here since we cannot define those in the constructor (no template param)
         da_status status;
 
@@ -429,7 +432,7 @@ class py_svr : public py_svm {
         exception_check(status);
         status = da_options_set(handle, "epsilon", epsilon);
         exception_check(status);
-        common_fit(X, y, gamma, coef0, tol, tau);
+        common_fit(X, y, gamma, coef0, tol, cache_size, tau);
     }
 };
 
@@ -446,13 +449,13 @@ class py_nusvc : public py_svm {
 
     template <typename T>
     void fit(py::array_t<T> X, py::array_t<T> y, std::optional<T> tau, T nu = 0.5,
-             T gamma = 1, T coef0 = 0.0, T tol = 0.001) {
+             T gamma = 1, T coef0 = 0.0, T tol = 0.001, T cache_size = 200) {
         // floating point optional parameters are defined here since we cannot define those in the constructor (no template param)
         da_status status;
 
         status = da_options_set(handle, "nu", nu);
         exception_check(status);
-        common_fit(X, y, gamma, coef0, tol, tau);
+        common_fit(X, y, gamma, coef0, tol, cache_size, tau);
     }
 };
 
@@ -469,7 +472,7 @@ class py_nusvr : public py_svm {
 
     template <typename T>
     void fit(py::array_t<T> X, py::array_t<T> y, std::optional<T> tau, T nu = 0.5,
-             T C = 1.0, T gamma = 1, T coef0 = 0.0, T tol = 0.001) {
+             T C = 1.0, T gamma = 1, T coef0 = 0.0, T tol = 0.001, T cache_size = 200) {
         // floating point optional parameters are defined here since we cannot define those in the constructor (no template param)
         da_status status;
 
@@ -477,7 +480,7 @@ class py_nusvr : public py_svm {
         exception_check(status);
         status = da_options_set(handle, "C", C);
         exception_check(status);
-        common_fit(X, y, gamma, coef0, tol, tau);
+        common_fit(X, y, gamma, coef0, tol, cache_size, tau);
     }
 };
 #endif

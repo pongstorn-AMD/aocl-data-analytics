@@ -30,6 +30,8 @@ context *context::global_obj = nullptr;
 std::mutex context::global_lock;
 #endif
 
+thread_local std::unordered_map<std::string, std::string> context::hidden_settings;
+
 // Function that returns the global context
 context *context::get_context() {
 #if defined(_WIN32)

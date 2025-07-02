@@ -31,6 +31,27 @@ k-means clustering Python test script
 import numpy as np
 import pytest
 from aoclda.clustering import kmeans
+from aoclda.tools import _debug as dbg
+
+
+@pytest.mark.parametrize("isa", ["scalar", "avx"])
+def test_context_getsetters_kmeans(isa):
+    """
+    Check kmeans setup registry, request a specific kernel, expect setup to
+    record it
+    """
+    isae = {"scalar": "0", "avx": "2"}  # matches with enum in kmeans_type.hpp
+    dbg.set({"kmeans.isa": isa})
+    _ = test_kmeans_functionality(np.float32, "C")
+    d = dbg.get("kmeans.setup")
+    tokens = (d["kmeans.setup"]).split(",")
+    ok = False
+    for t in tokens:
+        pair = t.split("=")
+        if (pair[0] == "kernel.type") and (pair[1] == isae[isa]):
+            ok = True
+            break
+    assert ok
 
 
 @pytest.mark.parametrize("numpy_precision", [np.float64, np.float32])
@@ -91,10 +112,10 @@ def test_kmeans_functionality(numpy_precision, numpy_order):
     assert km.n_iter == 1
 
 
-@pytest.mark.parametrize("da_precision, numpy_precision", [
+@pytest.mark.parametrize("_da_precision, numpy_precision", [
     ("double", np.float64), ("single", np.float32),
 ])
-def test_kmeans_error_exits(da_precision, numpy_precision):
+def test_kmeans_error_exits(_da_precision, numpy_precision):
     """
     Test error exits in the Python wrapper
     """
@@ -111,8 +132,10 @@ def test_kmeans_error_exits(da_precision, numpy_precision):
     with pytest.raises(RuntimeError):
         km.transform(b)
 
-    a = np.array([[1, 1, 1], [2, 2, 2], [3, 3, 3]], dtype=numpy_precision, order="F")
-    b = np.array([[1, 1, 1], [2, 2, 2], [3, 3, 3]], dtype=numpy_precision, order="C")
+    a = np.array([[1, 1, 1], [2, 2, 2], [3, 3, 3]],
+                 dtype=numpy_precision, order="F")
+    b = np.array([[1, 1, 1], [2, 2, 2], [3, 3, 3]],
+                 dtype=numpy_precision, order="C")
     km = kmeans(n_clusters=10)
     with pytest.warns(RuntimeWarning):
         km.fit(a)

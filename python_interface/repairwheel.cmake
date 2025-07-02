@@ -22,8 +22,9 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-# Get a list of wheel files using GLOB
-file(GLOB wheel_files "${CMAKE_INSTALL_PREFIX}/python_package/*.whl")
+# Get a list of unrepaired wheel files using GLOB
+file(GLOB wheel_files
+     "${CMAKE_INSTALL_PREFIX}/python_package/unrepaired-wheels/*.whl")
 
 foreach(file ${wheel_files})
   if(WIN32)
@@ -45,19 +46,50 @@ foreach(file ${wheel_files})
         "${SPARSE_DIR}:${LAPACK_DIR}:${BLAS_DIR}:${UTILS_DIR}:${CMAKE_INSTALL_PREFIX}/tmp:$ENV{LD_LIBRARY_PATH}"
     )
     message(NOTICE "LD_LIBRARY_PATH             $ENV{LD_LIBRARY_PATH}")
+
     # Repair the wheel using auditwheel
+
     execute_process(COMMAND auditwheel show ${file})
+
+    # Use string(REGEX MATCH ...) to extract the manylinux tag
+    string(REGEX MATCH "manylinux[^.]*" manylinux_platform ${file})
+
+    # Display the extracted platform - we will repair the wheel with this target
+    message(STATUS "Targeting the manylinux platform: ${manylinux_platform}")
+
+    # Try to run auditwheel repair with the same target platform as the original
+    # wheel - this is preferable particularly for container builds as it will
+    # not change the platform tag
     execute_process(
-      # Future auditwheel versions are likely to permit wildcards - for now we
-      # also explicitly list the excluded libraries
       COMMAND
-        auditwheel repair ${file} --plat linux_x86_64 --wheel-dir
-        ${CMAKE_INSTALL_PREFIX}/python_package --exclude "libc.so" --exclude
-        "libc.so.6" --exclude "libgcc_s.so.1" --exclude "libstdc++.so.6"
-        --exclude "libstdc++.so.8" --exclude "libgcc_s.so.*" --exclude
-        "libc.so.*" --exclude "librt.so.*" --exclude "librt.so.1" --exclude
-        "libdl.so.*" --exclude "libdl.so.2" --exclude "libpthread.so.*"
-        --exclude "libpthread.so.0" --exclude "libm.so.*" --exclude "libm.so.6")
+        auditwheel repair ${file} --plat ${manylinux_platform} --only-plat
+        --wheel-dir ${CMAKE_INSTALL_PREFIX}/python_package --exclude "libc.so"
+        --exclude "libc.so.*" --exclude "libgcc_s.so.*" --exclude
+        "libstdc++.so.*" --exclude "libc.so.*" --exclude "librt.so.*" --exclude
+        "libdl.so.*" --exclude "libpthread.so.*" --exclude "libm.so.*"
+      RESULT_VARIABLE result)
+
+    if(NOT result EQUAL 0)
+      # If the above command fails, we will try to repair the wheel without
+      # specifying the platform tag, which will allow auditwheel to determine
+      # the appropriate platform tag based on the contents of the wheel - most
+      # useful for dev builds without a container.
+      message(WARNING "Audtwheel needs to change the platform tag.")
+      execute_process(
+        COMMAND
+          auditwheel repair ${file} --wheel-dir
+          ${CMAKE_INSTALL_PREFIX}/python_package --exclude "libc.so" --exclude
+          "libc.so.*" --exclude "libgcc_s.so.*" --exclude "libstdc++.so.*"
+          --exclude "libc.so.*" --exclude "librt.so.*" --exclude "libdl.so.*"
+          --exclude "libpthread.so.*" --exclude "libm.so.*"
+        RESULT_VARIABLE fallback_result)
+      if(NOT fallback_result EQUAL 0)
+        message(FATAL_ERROR "Failed to repair the Python wheel.")
+      endif()
+      # If the fallback repair is successful, we will remove the original
+      # unrepaired wheel
+      file(REMOVE ${file})
+    endif()
 
   endif()
 endforeach()

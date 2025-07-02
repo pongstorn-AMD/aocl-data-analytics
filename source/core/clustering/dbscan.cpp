@@ -33,9 +33,9 @@
 #include "da_std.hpp"
 #include "da_vector.hpp"
 #include "dbscan_options.hpp"
-#include "dbscan_types.hpp"
 #include "lapack_templates.hpp"
 #include "macros.h"
+#include "nn_types.hpp"
 #include "pairwise_distances.hpp"
 #include "radius_neighbors.hpp"
 #include <algorithm>
@@ -46,11 +46,14 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#define NOISE -1
+#define UNVISITED -2
+
 namespace ARCH {
 
 namespace da_dbscan {
 
-using namespace da_dbscan_types;
+using namespace da_nn_types;
 
 /* Utility function to add a rule in an unordered map. Recursively searches for rules with the same
    key and updates them accordingly. */
@@ -192,6 +195,11 @@ template <typename T> void dbscan<T>::refresh() {
         A_temp = nullptr;
     }
     iscomputed = false;
+    neighbors.clear();
+    core_sample_indices.clear();
+    labels.clear();
+    n_core_samples = 0;
+    n_clusters = 0;
 }
 
 /* Store details about user's data matrix in preparation for DBSCAN computation */
@@ -242,19 +250,7 @@ template <typename T> da_status dbscan<T>::compute() {
     std::string opt_tmp;
     this->opts.get("algorithm", opt_tmp, algorithm);
 
-    // Currently we only support the brute-force method
-    if (algorithm != brute && algorithm != automatic && algorithm != brute_parallel) {
-        return da_error(this->err, da_status_invalid_option,
-                        "The only supported algorithm is 'brute'.");
-    }
-
-    // Currently only support Euclidean distance
     this->opts.get("metric", opt_tmp, metric);
-
-    if (metric != euclidean) {
-        return da_error(this->err, da_status_invalid_option,
-                        "The only supported metric is 'euclidean'.");
-    }
 
     // Allocate memory
     try {
@@ -267,13 +263,47 @@ template <typename T> da_status dbscan<T>::compute() {
                         "Memory allocation failed.");
     }
 
+    metric_internal = da_metric(metric);
+
+    // Check for incompatible options
+    if (algorithm == kd_tree) {
+        if (metric == da_cosine) {
+            return da_error(
+                this->err, da_status_incompatible_options,
+                "The k-d tree algorithm is not compatible with the cosine metric.");
+        } else if (metric == da_minkowski && p < (T)1.0) {
+            return da_error(this->err, da_status_incompatible_options,
+                            "The k-d tree algorithm is not compatible with the Minkowski "
+                            "metric when p < 1.");
+        }
+    }
+
+    alg_internal = da_nn_types::nn_algorithm(algorithm);
+    if (alg_internal == automatic) {
+        // If the user has not specified an algorithm, we will use the k-d tree if the data is small
+        // in dimension and the Minkowski options allow it. Otherwise we will use brute force.
+        if (n_features <= 15 && !(metric_internal == da_minkowski && p < (T)1.0)) {
+            alg_internal = kd_tree;
+        } else {
+            alg_internal = brute;
+        }
+    }
+
     // Form in neighbors the list of indices within the epsilon neighborhood of each sample point
-    status = da_radius_neighbors::radius_neighbors(n_samples, n_features, A, lda, eps,
-                                                   neighbors, this->err);
+    if (alg_internal == brute) {
+
+        status = da_radius_neighbors::radius_neighbors_brute(
+            n_samples, n_features, A, lda, eps, metric_internal, p, neighbors, this->err);
+
+    } else if (alg_internal == kd_tree) {
+        status = da_radius_neighbors::radius_neighbors_kdtree(
+            n_samples, n_features, A, lda, eps, metric_internal, p, leaf_size, neighbors,
+            this->err);
+    }
+
     if (status != da_status_success)
         return da_error(this->err, status, // LCOV_EXCL_LINE
                         "Failed to compute radius neighbors prior to clustering.");
-
     status = dbscan_clusters();
     if (status != da_status_success)
         return da_error(this->err, status, // LCOV_EXCL_LINE
@@ -285,8 +315,8 @@ template <typename T> da_status dbscan<T>::compute() {
     return status;
 }
 
-/* Compute the DBSCAN clusters using parallel brute force method */
-template <typename T> da_status dbscan<T>::dbscan_brute_force_parallel() {
+/* Compute the DBSCAN clusters using parallel method */
+template <typename T> da_status dbscan<T>::dbscan_clusters_parallel() {
 
     da_status status = da_status_success;
 
@@ -380,8 +410,8 @@ template <typename T> da_status dbscan<T>::dbscan_brute_force_parallel() {
     return status;
 }
 
-/* Compute the DBSCAN clusters using serial brute force method */
-template <typename T> da_status dbscan<T>::dbscan_brute_force_serial() {
+/* Compute the DBSCAN clusters using serial method */
+template <typename T> da_status dbscan<T>::dbscan_clusters_serial() {
 
     da_status status = da_status_success;
 
@@ -448,27 +478,12 @@ template <typename T> da_status dbscan<T>::dbscan_clusters() {
     // Work with min_samples - 1 since we are not counting points as being in their own neighbourhood
     min_samples_m1 = min_samples - 1;
 
-    // Select the algorithm: we only want to use the parallel brute force method if explicitly forced or
-    // if we have more than 32 threads available, since otherwise the serial brute force method is faster
-    da_int internal_algorithm = algorithm;
+    // We only want to use the parallel method if we have more than 32 threads available, since otherwise the serial method is faster
 
-    if (internal_algorithm == brute || internal_algorithm == automatic) {
-        if (omp_get_max_threads() > 32)
-            internal_algorithm = brute_parallel;
-        else
-            internal_algorithm = brute_serial;
-    }
-
-    switch (internal_algorithm) {
-    case brute_serial:
-        status = dbscan_brute_force_serial();
-        break;
-    case brute_parallel:
-        status = dbscan_brute_force_parallel();
-        break;
-    default:
-        return da_error(this->err, da_status_internal_error, // LCOV_EXCL_LINE
-                        "Invalid algorithm selected.");
+    if (omp_get_max_threads() > 32) {
+        status = dbscan_clusters_parallel();
+    } else {
+        status = dbscan_clusters_serial();
     }
 
     // If clustering failed (only possible if memory runs out) return immediately

@@ -29,6 +29,7 @@ aoclda.factorization module
 
 import numpy as np
 from ._aoclda.clustering import pybind_kmeans, pybind_DBSCAN
+from ._internal_utils import check_convert_data
 
 
 class kmeans():
@@ -46,7 +47,7 @@ class kmeans():
             cluster and the corresponding cluster centres are computed and used as the starting
             point). Default: 'k-means++'.
 
-        C (numpy.ndarray, optional): The matrix of initial cluster centres. It has
+        C (array-like, optional): The matrix of initial cluster centres. It has
             shape (n_clusters, n_features). If supplied, these centres will be used as the starting
             point for the first iteration, otherwise the initialization method specified above will
             be used. Default = None.
@@ -76,6 +77,8 @@ class kmeans():
         self.kmeans_single = pybind_kmeans(n_clusters, initialization_method, n_init, max_iter,
                                            seed, algorithm,  'single', check_data)
 
+        if C is not None:
+            C = check_convert_data(C)
         self.C=C
         self.tol = tol
         self.kmeans = self.kmeans_double
@@ -125,13 +128,14 @@ class kmeans():
         centres as the starting point.
 
         Args:
-            A (numpy.ndarray): The data matrix with which to compute the k-means clusters. It has
+            A (array-like): The data matrix with which to compute the k-means clusters. It has
               shape (n_samples, n_features).
 
         Returns:
             self (object): Returns the instance itself.
 
         """
+        A = check_convert_data(A)
         if A.dtype == "float32":
             self.kmeans = self.kmeans_single
             self.kmeans_double = None
@@ -148,13 +152,15 @@ class kmeans():
         ``kmeans.fit``.
 
         Args:
-            X (numpy.ndarray): The data matrix to be transformed. It has shape
+            X (array-like): The data matrix to be transformed. It has shape
               (m_samples, m_features). Note that ``m_features`` must match ``n_features``,
               the number of features in the data matrix originally supplied to ``kmeans.fit``.
 
         Returns:
             numpy.ndarray of shape (m_samples, n_clusters): The transformed matrix.
         """
+        X = check_convert_data(X)
+        
         return self.kmeans.pybind_transform(X)
 
     def predict(self, Y):
@@ -165,13 +171,15 @@ class kmeans():
         previously computed in ``kmeans.fit``.
 
         Args:
-            Y (numpy.ndarray): The data matrix to be transformed. It has shape
+            Y (array-like): The data matrix to be transformed. It has shape
               (k_samples, k_features). Note that ``k_features`` must match ``n_features``,
               the number of features in the data matrix used in ``kmeans.fit``.
 
         Returns:
             numpy.ndarray of shape (k_samples, ): The labels.
         """
+        Y = check_convert_data(Y)
+        
         return self.kmeans.pybind_predict(Y)
 
 class DBSCAN():
@@ -185,20 +193,21 @@ class DBSCAN():
         min_samples (int, optional): Minimum number of neighborhood samples for a sample point to be
             considered a core point. Default = 5.
 
-        metric (str, optional): The distance metric used to compare sample points. Reserved for
-            future use. Default = 'euclidean'.
+        metric (str, optional): The distance metric used to compare sample points. Available metrics
+            are 'euclidean', 'l2', 'sqeuclidean' (squared euclidean distances), 'manhattan', 'l1',
+            'cityblock', 'cosine', or 'minkowski'. Default = 'euclidean'.
 
-        algorithm (str, optional): The algorithm used to compute the clusters. Reserved for future
-            use. Default = 'brute'.
+        algorithm (str, optional): The algorithm used to compute the clusters. Available options are
+            'auto', 'brute' and 'kd_tree'. k-d trees are likely to be fastest for lower dimensional
+            datasets, but cannot not be used with the cosine distance or with the Minkowski distance
+            with power less than 1.0. Default = 'brute'.
 
-        leaf_size (int, optional): Leaf size for the KD tree or ball tree algorithms. Reserved for
-            future use. Default = 30.
+        leaf_size (int, optional): Leaf size for the k-d tree algorithm. Default = 30.
 
         eps (float, optional): Maximum distance between two samples for them to be considered in
             each other's neighborhood. Default = 0.5.
 
-        power (float, optional): Power used in computing the Minkowski metric. Reserved for future
-            use. Default = 2.0.
+        power (float, optional): Power used in computing the Minkowski metric. Default = 2.0.
 
         check_data (bool, optional): Whether to check the data for NaNs. Default = False.
 
@@ -254,12 +263,13 @@ class DBSCAN():
         Computes DBSCAN clusters for the supplied data matrix.
 
         Args:
-            A (numpy.ndarray): The data matrix with which to compute the DBSCAN clusters. It has
+            A (array-like): The data matrix with which to compute the DBSCAN clusters. It has
               shape (n_samples, n_features).
 
         Returns:
             self (object): Returns the instance itself.
         """
+        A = check_convert_data(A)
 
         if A.dtype == "float32":
             self.eps=np.float32(self.eps)

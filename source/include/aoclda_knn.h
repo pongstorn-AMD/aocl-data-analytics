@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Advanced Micro Devices, Inc. All rights reserved.
+ * Copyright (C) 2024-2025 Advanced Micro Devices, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
@@ -39,34 +39,13 @@ extern "C" {
  * \file
  */
 
-/**
- * \brief Defines which algorithm is used to compute the <i>k</i>-nearest neighbors.
- **/
-enum da_knn_algorithm_ {
-    da_brute_force ///< Use Brute Force.
-};
-
-/** @brief Alias for the \ref da_knn_algorithm_ enum. */
-typedef enum da_knn_algorithm_ da_knn_algorithm;
-
-/**
- * \brief Sets the weight function used to compute the <i>k</i>-nearest neighbors.
- **/
-enum da_knn_weights_ {
-    da_knn_uniform, ///< Use uniform weights.
-    da_knn_distance ///< Weight points by the inverse of their distance.
-};
-
-/** @brief Alias for the \ref da_knn_weights_ enum. */
-typedef enum da_knn_weights_ da_knn_weights;
-
 /** \{
  * \brief Pass a data matrix and a label array to the \ref da_handle object
  * in preparation for computing a <i>k</i>-NN.
  *
  * The data itself is not copied; a pointer to the data matrix is stored instead.
  * @rst
- * After calling this function you may use the option setting APIs to set :ref:`options <knn_options>`.
+ * This function must be called after using the option setting APIs to set :ref:`options <knn_options>`, since the options are required in case of a k-d tree algorithm.
  * @endrst
 
  * \param[inout] handle a \ref da_handle object, initialized with type \ref da_handle_knn.

@@ -109,10 +109,10 @@ da_status da_qr(da_int m, da_int n, std::vector<T> &A, da_int lda, std::vector<T
     /* Heuristic based on flop counts to determine the level of blocking. We need the following:
        1. m > n else it's never cheaper to do blocked QR
        2. block_size > n for same reason, which is implied by condition 4
-       3. n_blocks < m / n x [ (n_threads-1) / (3 x n_threads - 1) ]
+       3. n_blocks < (m / n) x [3 x (n_threads-1) / (3 x n_threads - 1)]
        4. n_blocks < m / n (which is implied by condition 3)
        5. n_blocks < 256 or some other suitable value e.g. number of cores on a node
-       6. block_size > 2048 to prevent excessively small geqrf calls
+       6. block_size > 1024 to prevent excessively small geqrf calls
        7. block_size to be rounded up to the nearest multiple of 256 for better cache use
        8. block_size < m
        9. the remainder, final_block_size, or size of the last block, must be no smaller than n to avoid a short wide QR
@@ -120,10 +120,10 @@ da_status da_qr(da_int m, da_int n, std::vector<T> &A, da_int lda, std::vector<T
      */
     da_int max_blocks =
         std::max(std::min(MAX_NUM_BLOCKS,
-                          (da_int)(3 * (n_threads - 2) * m / ((3 * n_threads - 1) * n))),
+                          (da_int)(3 * (n_threads - 1) * m / ((3 * n_threads - 1) * n))),
                  (da_int)1);
 
-    max_blocks = std::min(max_blocks, n_threads * 2);
+    max_blocks = std::min(max_blocks, n_threads);
 
     if (max_blocks == 1) {
         n_blocks = 1;

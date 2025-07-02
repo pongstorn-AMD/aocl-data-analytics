@@ -105,10 +105,10 @@ def test_metrics_errors():
     from sklearn.metrics.pairwise import pairwise_distances
 
     with pytest.warns(RuntimeWarning):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError), pytest.warns(UserWarning):
             euclidean_distance_XX = pairwise_distances(X, Y=None, metric="nonexistent")
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError), pytest.warns(UserWarning):
             euclidean_distance_XX = pairwise_distances(X, Y)
 
     undo_skpatch()

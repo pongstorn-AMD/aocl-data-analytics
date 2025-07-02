@@ -69,6 +69,12 @@ TYPED_TEST(knnTest, AccuracyTesting) {
         EXPECT_EQ(da_options_set_int(handle, "number of neighbors", param.n_neigh_knn),
                   da_status_success);
 
+        EXPECT_EQ(da_options_set(handle, "minkowski parameter", TypeParam(2.0)),
+                  da_status_success);
+
+        EXPECT_EQ(da_options_set_int(handle, "leaf size", param.leaf_size),
+                  da_status_success);
+
         EXPECT_EQ(da_knn_set_training_data(handle, param.n_samples, param.n_features,
                                            param.X_train.data(), param.ldx_train,
                                            param.y_train.data()),
@@ -180,6 +186,8 @@ TYPED_TEST(knnTest, ErrorExits) {
               da_status_no_data)
         << "Testing calling predict() before setting data failed.";
 
+    EXPECT_EQ(da_options_set_string(knn_handle, "algorithm", "brute"), da_status_success)
+        << "Setting algorithm to brute force failed.";
     // Invalid pointers in set_training_data
     EXPECT_EQ(da_knn_set_training_data(knn_handle, param.n_samples, param.n_features,
                                        X_invalid, param.ldx_train, y.data()),
@@ -217,7 +225,7 @@ TYPED_TEST(knnTest, ErrorExits) {
     EXPECT_EQ(da_options_set_int(knn_handle, "number of neighbors", 0),
               da_status_option_invalid_value)
         << "Invalid option 'number of neighbors' test failed.";
-    EXPECT_EQ(da_options_set_string(knn_handle, "algorithm", "kdtree"),
+    EXPECT_EQ(da_options_set_string(knn_handle, "algorithm", "nonexistent"),
               da_status_option_invalid_value)
         << "Invalid option 'algorithm' test failed.";
     EXPECT_EQ(da_options_set_string(knn_handle, "metric", "nonexistent"),
@@ -306,5 +314,83 @@ TYPED_TEST(knnTest, ErrorExits) {
                              nullptr),
               da_status_invalid_pointer)
         << ErrorExits_print("y_test");
+
+    // Check that if we set up an option after setting the training data, it does not
+    // throw an error. Checking internal check_options_update() function.
+    EXPECT_EQ(da_options_set_string(knn_handle, "algorithm", "auto"), da_status_success)
+        << "Setting algorithm to k-d tree failed.";
+    EXPECT_EQ(da_knn_kneighbors(knn_handle, param.n_queries, param.n_features, X.data(),
+                                param.ldx_test, ind.data(), nullptr,
+                                param.n_neigh_kneighbors, 0),
+              da_status_option_locked)
+        << "Testing that if algorithm option has been set, it cannot be changed "
+           "after setting the training data failed.";
+
+    // Call training_data with the same data again, it should not throw an error.
+    EXPECT_EQ(da_knn_set_training_data(knn_handle, param.n_samples, param.n_features,
+                                       X.data(), param.ldx_test, y.data()),
+              da_status_success)
+        << "Setting training data again with the same data failed.";
+
+    EXPECT_EQ(da_options_set(knn_handle, "leaf size", (da_int)10), da_status_success)
+        << "Setting leaf size to 10 failed.";
+    EXPECT_EQ(da_knn_kneighbors(knn_handle, param.n_queries, param.n_features, X.data(),
+                                param.ldx_test, ind.data(), nullptr,
+                                param.n_neigh_kneighbors, 0),
+              da_status_option_locked)
+        << "Testing that if leaf size option has been set, it cannot be changed "
+           "after setting the training data failed.";
+    // Call training_data with the same data again, it should not throw an error.
+    EXPECT_EQ(da_knn_set_training_data(knn_handle, param.n_samples, param.n_features,
+                                       X.data(), param.ldx_test, y.data()),
+              da_status_success)
+        << "Setting training data again with the same data failed.";
+
+    EXPECT_EQ(da_options_set(knn_handle, "metric", "minkowski"), da_status_success)
+        << "Setting metric to minkowski failed.";
+    EXPECT_EQ(da_knn_kneighbors(knn_handle, param.n_queries, param.n_features, X.data(),
+                                param.ldx_test, ind.data(), nullptr,
+                                param.n_neigh_kneighbors, 0),
+              da_status_option_locked)
+        << "Testing that if metric option has been set, it cannot be changed "
+           "after setting the training data failed.";
+    // Call training_data with the same data again, it should not throw an error.
+    EXPECT_EQ(da_knn_set_training_data(knn_handle, param.n_samples, param.n_features,
+                                       X.data(), param.ldx_test, y.data()),
+              da_status_success)
+        << "Setting training data again with the same data failed.";
+
+    EXPECT_EQ(da_options_set(knn_handle, "minkowski parameter", TypeParam(1.0)),
+              da_status_success)
+        << "Setting metric to minkowski failed.";
+    EXPECT_EQ(da_knn_kneighbors(knn_handle, param.n_queries, param.n_features, X.data(),
+                                param.ldx_test, ind.data(), nullptr,
+                                param.n_neigh_kneighbors, 0),
+              da_status_option_locked)
+        << "Testing that if minkowski parameter option has been set, it cannot be "
+           "changed "
+           "after setting the training data failed.";
+    // Call training_data with the same data again, it should not throw an error.
+    EXPECT_EQ(da_knn_set_training_data(knn_handle, param.n_samples, param.n_features,
+                                       X.data(), param.ldx_test, y.data()),
+              da_status_success)
+        << "Setting training data again with the same data failed.";
+
+    // Since we tested all variables checked in check_options_update(), for da_knn_kneighbors(),
+    // for predict() and predict_proba() we can set only one of the options to ensure that
+    // the check_options_update() has been called.
+    EXPECT_EQ(da_options_set(knn_handle, "algorithm", "kd tree"), da_status_success)
+        << "Setting algorithm to k-d tree failed.";
+    EXPECT_EQ(da_knn_predict(knn_handle, param.n_queries, param.n_features, X.data(),
+                             param.ldx_test, y.data()),
+              da_status_option_locked)
+        << "Testing that if algorithm option has been set, it cannot be changed "
+           "after setting the training data failed.";
+    EXPECT_EQ(da_knn_predict_proba(knn_handle, param.n_queries, param.n_features,
+                                   X.data(), param.ldx_test, proba.data()),
+              da_status_option_locked)
+        << "Testing that if algorithm option has been set, it cannot be changed "
+           "after setting the training data failed.";
+
     da_handle_destroy(&knn_handle);
 }

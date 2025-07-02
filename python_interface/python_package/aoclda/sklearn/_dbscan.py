@@ -44,14 +44,12 @@ class DBSCAN(DBSCAN_sklearn):
         # Supported attributes
         self.eps = eps
         self.min_samples = min_samples
-        self.algorithm = algorithm
         self.metric = metric
         self.leaf_size = leaf_size
         if p is None:
             self.p = 2
         else:
             self.p = p
-
 
         # Not supported yet
         self.metric_params = metric_params

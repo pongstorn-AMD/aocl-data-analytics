@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Advanced Micro Devices, Inc. All rights reserved.
+# Copyright (C) 2024-2025 Advanced Micro Devices, Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
 # are permitted provided that the following conditions are met:
@@ -30,7 +30,7 @@ aoclda.decision_forest module
 """
 
 from ._aoclda.decision_forest import pybind_decision_forest
-
+from ._internal_utils import check_convert_data
 
 class decision_forest():
     """
@@ -142,14 +142,16 @@ class decision_forest():
         Computes the decision forest on the feature matrix ``X`` and response vector ``y``
 
         Args:
-            X (numpy.ndarray): The feature matrix on which to compute the model.
+            X (array-like): The feature matrix on which to compute the model.
                 Its shape is (n_samples, n_features).
 
-            y (numpy.ndarray): The response vector. Its shape is (n_samples).
+            y (array-like): The response vector. Its shape is (n_samples).
 
         Returns:
             self (object): Returns the instance itself.
         """
+        X = check_convert_data(X, dtype='float32')
+        y = check_convert_data(y, dtype='int32', force_float=False)
         if X.dtype == "float32":
             self.decision_forest = self.decision_forest_single
             self.decision_forest_double = None
@@ -164,14 +166,17 @@ class decision_forest():
         labels on a new set of data.
 
         Args:
-            X (numpy.ndarray): The feature matrix to evaluate the model on.
+            X (array-like): The feature matrix to evaluate the model on.
                 It must have n_features columns.
 
-            y (numpy.ndarray): The response vector.  It must have shape (n_samples).
+            y (array-like): The response vector.  It must have shape (n_samples).
 
         Returns:
             float: The mean accuracy of the model on the test data.
         """
+        X = check_convert_data(X, dtype='float32')
+        y = check_convert_data(y, dtype='int32', force_float=False)
+        
         return self.decision_forest.pybind_score(X, y)
 
     def predict(self, X):
@@ -179,13 +184,15 @@ class decision_forest():
         Generate labels using fitted decision forest on a new set of data ``X``.
 
         Args:
-            X (numpy.ndarray): The feature matrix to evaluate the model on.
+            X (array-like): The feature matrix to evaluate the model on.
                 It must have n_features columns.
 
         Returns:
             numpy.ndarray of length n_samples: The prediction vector,
                 where n_samples is the number of rows of X.
         """
+        X = check_convert_data(X, dtype='float32')
+        
         return self.decision_forest.pybind_predict(X)
 
     def predict_proba(self, X):
@@ -193,13 +200,15 @@ class decision_forest():
         Generate class probabilities using fitted decision forest on a new set of data ``X``.
 
         Args:
-            X (numpy.ndarray): The feature matrix to evaluate the model on.
+            X (array-like): The feature matrix to evaluate the model on.
                 It must have n_features columns.
 
         Returns:
             numpy.ndarray of length n_samples: The prediction vector,
                 where n_samples is the number of rows of X.
         """
+        X = check_convert_data(X, dtype='float32')
+        
         return self.decision_forest.pybind_predict_proba(X)
 
     def predict_log_proba(self, X):
@@ -207,11 +216,13 @@ class decision_forest():
         Generate class log probabilities using fitted decision forest on a new set of data ``X``.
 
         Args:
-            X (numpy.ndarray): The feature matrix to evaluate the model on.
+            X (array-like): The feature matrix to evaluate the model on.
                 It must have n_features columns.
 
         Returns:
             numpy.ndarray of length n_samples: The prediction vector,
                 where n_samples is the number of rows of X.
         """
+        X = check_convert_data(X, dtype='float32')
+        
         return self.decision_forest.pybind_predict_log_proba(X)

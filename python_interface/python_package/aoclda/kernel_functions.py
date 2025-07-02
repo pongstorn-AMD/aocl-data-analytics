@@ -32,6 +32,7 @@ import numpy as np
 from ._aoclda.kernel_functions import (
     pybind_rbf_kernel, pybind_linear_kernel,
     pybind_polynomial_kernel, pybind_sigmoid_kernel)
+from ._internal_utils import check_convert_data
 
 
 def rbf_kernel(X, Y=None, gamma=1.0):
@@ -46,14 +47,18 @@ def rbf_kernel(X, Y=None, gamma=1.0):
     the RBF kernel between X and Y, with shape (n_samples_X, n_samples_Y).
 
     Args:
-        X (numpy.ndarray): The feature matrix of shape (n_samples_X, n_features).
-        Y (numpy.ndarray, optional): The optional matrix of shape (n_samples_Y, n_features).
+        X (array-like): The feature matrix of shape (n_samples_X, n_features).
+        Y (array-like, optional): The optional matrix of shape (n_samples_Y, n_features).
         gamma (float, optional): The kernel coefficient. Has to be greater or equal to 0.
 
     Returns:
         numpy.ndarray: The RBF kernel matrix of shape (n_samples_X, n_samples_X) if Y is None,
         or (n_samples_X, n_samples_Y) otherwise.
     """
+    X = check_convert_data(X)
+    if Y is not None:
+        Y = check_convert_data(Y)
+    
     if X.dtype == "float32":
         gamma = np.float32(gamma)
     else:
@@ -73,13 +78,17 @@ def linear_kernel(X, Y=None):
     the linear kernel between X and Y, with shape (n_samples_X, n_samples_Y).
 
     Args:
-        X (numpy.ndarray): The feature matrix of shape (n_samples_X, n_features).
-        Y (numpy.ndarray, optional): The optional matrix of shape (n_samples_Y, n_features).
+        X (array-like): The feature matrix of shape (n_samples_X, n_features).
+        Y (array-like, optional): The optional matrix of shape (n_samples_Y, n_features).
 
     Returns:
         numpy.ndarray: The linear kernel matrix of shape (n_samples_X, n_samples_X) if Y is None,
         or (n_samples_X, n_samples_Y) otherwise.
     """
+    X = check_convert_data(X)
+    if Y is not None:
+        Y = check_convert_data(Y)
+    
     return pybind_linear_kernel(X, Y)
 
 
@@ -95,8 +104,8 @@ def polynomial_kernel(X, Y=None, degree=3, gamma=1.0, coef0=1.0):
     the polynomial kernel between X and Y, with shape (n_samples_X, n_samples_Y).
 
     Args:
-        X (numpy.ndarray): The feature matrix of shape (n_samples_X, n_features).
-        Y (numpy.ndarray, optional): The optional matrix of shape (n_samples_Y, n_features).
+        X (array-like): The feature matrix of shape (n_samples_X, n_features).
+        Y (array-like, optional): The optional matrix of shape (n_samples_Y, n_features).
         degree (int, optional): The degree of the polynomial.
         gamma (float, optional): The kernel coefficient. Has to be greater or equal to 0.
         coef0 (float, optional): The independent term in the polynomial kernel.
@@ -105,6 +114,10 @@ def polynomial_kernel(X, Y=None, degree=3, gamma=1.0, coef0=1.0):
         numpy.ndarray: The polynomial kernel matrix of shape (n_samples_X, n_samples_X)
         if Y is None, or (n_samples_X, n_samples_Y) otherwise.
     """
+    X = check_convert_data(X)
+    if Y is not None:
+        Y = check_convert_data(Y)
+    
     if X.dtype == "float32":
         gamma = np.float32(gamma)
         coef0 = np.float32(coef0)
@@ -126,8 +139,8 @@ def sigmoid_kernel(X, Y=None, gamma=1.0, coef0=1.0):
     the sigmoid kernel between X and Y, with shape (n_samples_X, n_samples_Y).
 
     Args:
-        X (numpy.ndarray): The feature matrix of shape (n_samples_X, n_features).
-        Y (numpy.ndarray, optional): The optional matrix of shape (n_samples_Y, n_features).
+        X (array-like): The feature matrix of shape (n_samples_X, n_features).
+        Y (array-like, optional): The optional matrix of shape (n_samples_Y, n_features).
         gamma (float, optional): The kernel coefficient. Has to be greater or equal to 0.
         coef0 (float, optional): The constant factor for the sigmoid kernel.
 
@@ -135,6 +148,10 @@ def sigmoid_kernel(X, Y=None, gamma=1.0, coef0=1.0):
         numpy.ndarray: The sigmoid kernel matrix of shape (n_samples_X, n_samples_X) if Y is None,
         or (n_samples_X, n_samples_Y) otherwise.
     """
+    X = check_convert_data(X)
+    if Y is not None:
+        Y = check_convert_data(Y)
+    
     if X.dtype == "float32":
         gamma = np.float32(gamma)
         coef0 = np.float32(coef0)

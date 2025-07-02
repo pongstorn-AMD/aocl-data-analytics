@@ -47,10 +47,13 @@ For Linux users, if you find that your system is incompatible with the supplied 
    If you encounter issues, please e-mail us on
    toolchainsupport@amd.com.
 
-NumPy arrays
+Arrays
 =============
 
-AOCL-DA Python interfaces typically expect data to be supplied as NumPy arrays. These can be supplied either with ``order='C'`` or ``order='F'`` for row- or column-major ordering respectively.
+AOCL-DA Python interfaces typically expect data to be supplied as array-like objects. These include NumPy arrays, Pandas data frames, Python lists, etc. 
+The Python interfaces will try to convert the array-like object to a NumPy array, if it is not already one or has an unsupported data type.
+However, it is recommended to supply NumPy arrays directly, as this will avoid additional copying or conversion of the data, which can affect performance.
+If supported, the data objects can be supplied either with ``order='C'`` or ``order='F'`` for row- or column-major ordering respectively.
 For best performance, it is generally recommended to use ``order='F'`` when supplying NumPy arrays to AOCL-DA functions since row-major arrays may be copied and transposed internally.
 
 In order to provide the best possible performance, the algorithmic functions will not automatically check for

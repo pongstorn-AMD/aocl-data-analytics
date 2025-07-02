@@ -30,10 +30,13 @@ kNN Python test script
 import numpy as np
 import pytest
 from aoclda.nearest_neighbors import knn_classifier
+from sklearn.datasets import make_classification, make_regression
+from sklearn.model_selection import train_test_split
 
 @pytest.mark.parametrize("numpy_precision", [np.float64, np.float32])
 @pytest.mark.parametrize("numpy_order", ["C", "F"])
-def test_knn_functionality(numpy_precision, numpy_order):
+@pytest.mark.parametrize("algo", ["auto", "brute", "kd_tree"])
+def test_knn_functionality(numpy_precision, numpy_order, algo):
     """
     Test the functionality of the Python wrapper
     """
@@ -53,7 +56,7 @@ def test_knn_functionality(numpy_precision, numpy_order):
                        [2, 1, -3]],
                        dtype=numpy_precision, order=numpy_order)
 
-    knn = knn_classifier()
+    knn = knn_classifier(algorithm=algo)
     knn.fit(x_train, y_train)
     k_dist, k_ind = knn.kneighbors(x_test, n_neighbors=3, return_distance=True)
 
@@ -84,6 +87,73 @@ def test_knn_functionality(numpy_precision, numpy_order):
     assert proba == pytest.approx(expected_proba, tol)
     assert not np.any(y_test - expected_labels)
 
+@pytest.mark.parametrize("n_samples", [20, 500, 5000])
+@pytest.mark.parametrize("n_features", [4, 10, 15])
+@pytest.mark.parametrize("n_classes", [3])
+@pytest.mark.parametrize("numpy_precision", [np.float64, np.float32])
+@pytest.mark.parametrize("numpy_order", ["C", "F"])
+@pytest.mark.parametrize("leaf_size", [1, 2, 10, 41])
+def test_knn_kdtree_functionality(n_samples, n_features, n_classes, numpy_precision, numpy_order, leaf_size):
+    """
+    Test the functionality of the Python wrapper fo different leaf sizes.
+    Since we expect the same results for k-d tree and brute force algorithms,
+    we can compare against the brute force algorithm.
+    """
+    x, y = make_classification(n_samples=2*n_samples,
+                                n_features=n_features,
+                                n_informative=n_features,
+                                n_repeated=0,
+                                n_redundant=0,
+                                n_classes=n_classes,
+                                random_state=42)
+
+    x_train, x_test, y_train, y_test = train_test_split(x, y,
+                                                        test_size=0.5,
+                                                        train_size=0.5,
+                                                        random_state=42)
+
+    if numpy_order == "F":
+        x_train = np.asfortranarray(x_train, dtype=numpy_precision)
+        x_test = np.asfortranarray(x_test, dtype=numpy_precision)
+    else:
+        # Only ensure numpy_precision is correct
+        x_train = np.array(x_train, dtype=numpy_precision)
+        x_test = np.array(x_test, dtype=numpy_precision)
+
+    # Compute using k-d tree algorithm
+    kdtree_knn = knn_classifier(algorithm="kd_tree", leaf_size=leaf_size)
+    kdtree_knn.fit(x_train, y_train)
+    kdtree_knn_k_dist, kdtree_knn_k_ind = kdtree_knn.kneighbors(x_test, n_neighbors=7, return_distance=True)
+
+    assert kdtree_knn_k_dist.flags.f_contiguous == x_test.flags.f_contiguous
+    assert kdtree_knn_k_ind.flags.f_contiguous == x_test.flags.f_contiguous
+
+    kdtree_knn_proba = kdtree_knn.predict_proba(x_test)
+    assert kdtree_knn_proba.flags.f_contiguous == x_test.flags.f_contiguous
+
+    kdtree_knn_y_test = kdtree_knn.predict(x_test)
+
+    # Now compute using brute force algorithm
+    brute_knn = knn_classifier(algorithm="brute", leaf_size=leaf_size)
+    brute_knn.fit(x_train, y_train)
+    brute_knn_k_dist, brute_knn_k_ind = brute_knn.kneighbors(x_test, n_neighbors=7, return_distance=True)
+
+    assert brute_knn_k_dist.flags.f_contiguous == x_test.flags.f_contiguous
+    assert brute_knn_k_ind.flags.f_contiguous == x_test.flags.f_contiguous
+
+    brute_knn_proba = brute_knn.predict_proba(x_test)
+    assert brute_knn_proba.flags.f_contiguous == x_test.flags.f_contiguous
+
+    brute_knn_y_test = brute_knn.predict(x_test)
+
+    # Check we have the right answer
+    tol = np.sqrt(np.finfo(numpy_precision).eps)
+
+    assert kdtree_knn_k_dist == pytest.approx(brute_knn_k_dist, tol)
+    assert not np.any(kdtree_knn_k_ind - brute_knn_k_ind)
+    assert kdtree_knn_proba == pytest.approx(brute_knn_proba, tol)
+    assert not np.any(kdtree_knn_y_test - brute_knn_y_test)
+
 @pytest.mark.parametrize("numpy_precision", [np.float64, np.float32])
 def test_knn_error_exits(numpy_precision):
     """
@@ -97,7 +167,7 @@ def test_knn_error_exits(numpy_precision):
     with pytest.raises(RuntimeError):
         knn = knn_classifier(metric = "nonexistent")
     with pytest.raises(RuntimeError):
-        knn = knn_classifier(algorithm = "kdtree")
+        knn = knn_classifier(algorithm = "nonexistent")
     y_train = np.array([[1,2,3]], dtype=numpy_precision)
     knn = knn_classifier()
     knn.fit(x_train, y_train)

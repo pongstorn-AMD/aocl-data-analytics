@@ -44,7 +44,9 @@ else()
     DESTINATION python_package
     PATTERN "nlls_*.py" EXCLUDE)
 endif()
-install(FILES python_package/setup.py DESTINATION python_package)
+install(FILES python_package/setup.py python_package/pyproject.toml
+              ${CMAKE_SOURCE_DIR}/Notices ${CMAKE_SOURCE_DIR}/License
+        DESTINATION python_package)
 
 if(NOT USE_EXISTING_DA)
   # Install aocl-da libraries in a temporary folder
@@ -90,7 +92,7 @@ add_subdirectory(python_package)
 
 # Create the wheel after installation
 install(
-  CODE "execute_process(COMMAND ${Python3_EXECUTABLE} -m pip wheel ${CMAKE_INSTALL_PREFIX}/python_package/ --no-deps --wheel-dir ${CMAKE_INSTALL_PREFIX}/python_package)"
+  CODE "execute_process(COMMAND ${Python3_EXECUTABLE} -m pip wheel ${CMAKE_INSTALL_PREFIX}/python_package/ --no-deps --wheel-dir ${CMAKE_INSTALL_PREFIX}/python_package/unrepaired-wheels)"
 )
 
 install(CODE "set(BLAS \"${BLAS}\")")

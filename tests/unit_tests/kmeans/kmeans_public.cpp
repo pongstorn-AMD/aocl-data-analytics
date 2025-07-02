@@ -37,6 +37,71 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+// Test kernel overrides
+TEST(KMeansKernelOverride, SetAndGet) {
+    using T = float;
+    // taken from  "kmeans_types.hpp"
+    enum kmeans_kernel { scalar = 0, avx = 2, avx2 = 5, avx512 = 11 };
+
+    da_int n_samples = 10;
+    da_int n_features = 2;
+    const std::vector<T> A{1.0, 1.1, 0.5,  0.49, -2.0, -2.0, 0.53, 0.9,  1.2, -1.8,
+                           1.0, 1.2, -2.0, -1.9, 0.5,  0.51, -2.1, 0.95, 0.8, 0.6};
+    da_int lda = 10;
+
+    // setup a micro problem
+    da_handle handle{nullptr};
+    EXPECT_EQ(da_handle_init<T>(&handle, da_handle_kmeans), da_status_success);
+    EXPECT_EQ(da_options_set_string(handle, "algorithm", "lloyd"), da_status_success);
+    EXPECT_EQ(da_options_set_int(handle, "n_clusters", 2), da_status_success);
+    EXPECT_EQ(da_kmeans_set_data(handle, n_samples, n_features, A.data(), lda),
+              da_status_success);
+
+    char answer[100];
+
+    EXPECT_EQ(da_kmeans_compute<T>(handle), da_status_success);
+    // Run kmean and expect telemetry data
+    EXPECT_EQ(da_debug_get("kmeans.setup", 100, answer), da_status_success);
+    // no need to parse...
+    // solve again with invalid ISA
+    // Rerun with invalid ISA value and expect "scalar" kernel type
+    EXPECT_EQ(da_debug_set("kmeans.ISA", "invalid"), da_status_success);
+    EXPECT_EQ(da_kmeans_compute<T>(handle), da_status_success);
+    // Run kmean and expect telemetry data
+    EXPECT_EQ(da_debug_get("kmeans.setup", 100, answer), da_status_success);
+    EXPECT_THAT(
+        std::string(answer),
+        ::testing::HasSubstr(("kernel.type=" + std::to_string(kmeans_kernel::scalar))));
+
+    // solve again Lloyd - AVX2
+    EXPECT_EQ(da_debug_set("kmeans.isa", "avx2"), da_status_success);
+    EXPECT_EQ(da_kmeans_compute<T>(handle), da_status_success);
+    // Check telemetry
+    EXPECT_EQ(da_debug_get("kmeans.setup", 100, answer), da_status_success);
+    EXPECT_EQ(da_debug_get(nullptr, 100, answer), da_status_success);
+    // "kmeans.settings" =
+    // "kernel=lloyd,kernel.type=" + std::to_string(kernel_type) + ",kernel.padding=" +
+    // std::to_string(padding));
+    EXPECT_THAT(
+        std::string(answer),
+        ::testing::HasSubstr(("kernel.type=" + std::to_string(kmeans_kernel::avx2))));
+
+    // solve again Elkan
+    EXPECT_EQ(da_options_set_string(handle, "algorithm", "elkan"), da_status_success);
+    EXPECT_EQ(da_kmeans_compute<T>(handle), da_status_success);
+    EXPECT_EQ(da_debug_get("kmeans.setup", 100, answer), da_status_success);
+    // "kernel=elkan,kernel.update_kernel_type=" + std::to_string(update_kernel_type) +
+    // ",kernel.reduce_kernel_type=" + std::to_string(reduce_kernel_type) +
+    // ",kernel.padding=" + std::to_string(padding));
+    EXPECT_THAT(std::string(answer),
+                ::testing::HasSubstr(("kernel.update_kernel_type=" +
+                                      std::to_string(kmeans_kernel::avx2))));
+    EXPECT_THAT(std::string(answer),
+                ::testing::HasSubstr(("kernel.reduce_kernel_type=" +
+                                      std::to_string(kmeans_kernel::avx2))));
+    da_handle_destroy(&handle);
+}
+
 template <typename T> class KMeansTest : public testing::Test {
   public:
     using List = std::list<T>;
@@ -128,7 +193,7 @@ TYPED_TEST(KMeansTest, KMeansFunctionality) {
             EXPECT_ARR_EQ(size_labels, labels.data(), param.expected_labels.data(), 1, 1,
                           0, 0);
 
-            EXPECT_ARR_NEAR(param.ldx_transform * param.m_features,
+            EXPECT_ARR_NEAR(param.ldx_transform * param.n_clusters,
                             param.X_transform.data(), param.expected_X_transform.data(),
                             param.tol);
 

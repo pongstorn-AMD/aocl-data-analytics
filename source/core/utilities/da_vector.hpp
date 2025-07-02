@@ -72,6 +72,19 @@ template <typename T> class da_vector {
         _data = nullptr;
     }
 
+    void clear() {
+        if (_data) {
+            free(_data);
+            _data = nullptr;
+        }
+        _size = 0;
+        _capacity = INIT_CAPACITY;
+        _data = (T *)malloc(_capacity * sizeof(T));
+        if (!_data) {
+            throw std::bad_alloc(); // LCOV_EXCL_LINE
+        }
+    }
+
     void push_back(const T &val) {
         if (_size == _capacity) {
             _capacity <<= 1;

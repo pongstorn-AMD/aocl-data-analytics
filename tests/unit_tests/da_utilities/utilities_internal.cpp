@@ -174,4 +174,40 @@ TEST(UtilitiesTest, DynamicDispatchTryArch) {
 
 } // namespace dynamic_dispatch
 
+// setter / getter for hidden context setting, this is used to pass
+// hidden options to the solvers, i.e. to force a certain ISA and
+// bypass auto-tuning for full code coverage, benchmarks, etc.
+TEST(UtilitiesTest, ContextHiddenSettings) {
+    // Exersize getter and setter
+    std::string skey = "Unit   Test";
+    const char charvalue[]{" Foo   Bar"};
+    char charans[100]{""};
+    EXPECT_EQ(da_debug_get(nullptr, -1, nullptr), da_status_success);
+    EXPECT_EQ(da_debug_set(" unit Test ", "Bar Foo BAZ "), da_status_success);
+    EXPECT_EQ(da_debug_get(skey.c_str(), 100, charans), da_status_success);
+    EXPECT_THAT(std::string(charans), testing::StrCaseEq("bar foo baz"));
+    EXPECT_EQ(da_debug_set(skey.c_str(), charvalue), da_status_success);
+    EXPECT_EQ(da_debug_get(skey.c_str(), 100, charans), da_status_success);
+    EXPECT_THAT(std::string(charans), testing::StrCaseEq("foo bar"));
+    EXPECT_EQ(da_debug_set(" new key", " new value "), da_status_success);
+    EXPECT_EQ(da_debug_get(nullptr, -1, nullptr), da_status_success);
+
+    // erase "Unit Test" key
+    EXPECT_EQ(da_debug_set(" unit Test ", ""), da_status_success);
+    EXPECT_EQ(da_debug_get(" unit Test ", 100, charans), da_status_option_not_found);
+    EXPECT_EQ(da_debug_get("new key", 100, charans), da_status_success);
+    EXPECT_THAT(std::string(charans), testing::StrCaseEq("new value"));
+
+    // Error returns
+    EXPECT_EQ(da_debug_set("    ", "Foo"), da_status_invalid_input);
+    EXPECT_EQ(da_debug_set(nullptr, "Foo"), da_status_invalid_input);
+    EXPECT_EQ(da_debug_set(charvalue, nullptr), da_status_invalid_input);
+    EXPECT_EQ(da_debug_get(skey.c_str(), 10, charans), da_status_invalid_input);
+    EXPECT_EQ(da_debug_get(skey.c_str(), -1, charans), da_status_invalid_input);
+    EXPECT_EQ(da_debug_get(nullptr, -1, charans), da_status_success);
+    EXPECT_EQ(da_debug_get(charvalue, -1, nullptr), da_status_success);
+
+    EXPECT_EQ(da_debug_get("NonExisting!", 100, charans), da_status_option_not_found);
+}
+
 } // namespace

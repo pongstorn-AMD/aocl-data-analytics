@@ -61,7 +61,7 @@ function(aoclda_add_dependencies OBJ_NAME)
   endif()
 endfunction()
 
-# Public APIs requiring generic compilation
+# Public APIs requiring generic compilation and other .cpp files that only require single compilation
 set(DA_LINMOD_PUBLIC core/linear_model/linmod_public.cpp)
 set(DA_BASIC_STATISTICS_PUBLIC
     core/basic_statistics/basic_statistics_public.cpp)
@@ -78,7 +78,8 @@ set(DA_CONTEXT core/dynamic_dispatch/context.cpp)
 set(DA_METRICS_PUBLIC core/metrics/pairwise_distances_public.cpp)
 set(DA_NEAREST_NEIGHBORS_PUBLIC core/nearest_neighbors/knn_public.cpp)
 set(DA_CLUSTERING_PUBLIC core/clustering/kmeans_public.cpp
-                         core/clustering/dbscan_public.cpp)
+                         core/clustering/dbscan_public.cpp
+                         core/clustering/kmeans_select_simd.cpp)
 set(DA_DECISION_FOREST_PUBLIC core/decision_forest/decision_tree_public.cpp
                               core/decision_forest/random_forest_public.cpp)
 set(DA_NLLS_PUBLIC core/nlls/nlls_public.cpp)
@@ -100,10 +101,12 @@ set(DA_BASIC_STATISTICS_INTERNAL
 set(DA_FACTORIZATION_INTERNAL core/factorization/pca.cpp)
 set(DA_DECISION_FOREST_INTERNAL core/decision_forest/decision_tree.cpp
                                 core/decision_forest/random_forest.cpp)
-set(DA_NEAREST_NEIGHBORS_INTERNAL core/nearest_neighbors/knn.cpp)
+set(DA_NEAREST_NEIGHBORS_INTERNAL
+    core/nearest_neighbors/knn.cpp core/nearest_neighbors/radius_neighbors.cpp
+    core/nearest_neighbors/kdtree.cpp)
 set(DA_CLUSTERING_INTERNAL
     core/clustering/kmeans.cpp core/clustering/dbscan.cpp
-    core/clustering/radius_neighbors.cpp)
+    core/clustering/kmeans_kernels.cpp)
 set(DA_UTILS_INTERNAL core/utilities/da_utils.cpp)
 set(DA_OPTIMIZATION_INTERNAL core/optimization/optimization.cpp)
 set(DA_SVM_INTERNAL core/svm/svm.cpp core/svm/base_svm.cpp core/svm/c_svm.cpp
@@ -186,7 +189,7 @@ add_library(
   $<$<BOOL:${BUILD_FORTRAN}>:${nlls_obj_list}>)
 
 # Set -mavx2 so generic code will still perform acceptably
-set(GENERIC_FLAGS "-march=x86-64;-mavx2")
+set(GENERIC_FLAGS "-march=x86-64;-mavx2;-mfma")
 
 # Add compile definitions
 if(ARCH STREQUAL "dynamic")
@@ -205,9 +208,7 @@ elseif(ARCH STREQUAL "native")
     target_compile_definitions(da_core_public
                                PRIVATE generic_AVAILABLE;ZNVER_MAX=generic)
   else()
-    message(
-      NOTICE
-      "Building using znver${NATIVE_NAMESPACE} namespace.")
+    message(NOTICE "Building using znver${NATIVE_NAMESPACE} namespace.")
     target_compile_definitions(
       da_core_public
       PRIVATE

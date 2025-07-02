@@ -46,8 +46,9 @@ class knn_classifier : public pyda_handle {
 
   public:
     knn_classifier(da_int n_neighbors = 5, std::string weights = "uniform",
-                   std::string algorithm = "brute", std::string metric = "euclidean",
-                   std::string prec = "double", bool check_data = false) {
+                   std::string algorithm = "auto", da_int leaf_size = 30,
+                   std::string metric = "euclidean", std::string prec = "double",
+                   bool check_data = false) {
         da_status status;
         if (prec == "double") {
             status = da_handle_init<double>(&handle, da_handle_knn);
@@ -61,10 +62,16 @@ class knn_classifier : public pyda_handle {
         internal_neigh = n_neighbors;
         status = da_options_set(handle, "weights", weights.c_str());
         exception_check(status);
-        status = da_options_set(handle, "algorithm", algorithm.c_str());
+        std::string algo = algorithm;
+        if (algorithm == "kd_tree")
+            algo = "kd tree";
+        status = da_options_set(handle, "algorithm", algo.c_str());
         exception_check(status);
         status = da_options_set(handle, "metric", metric.c_str());
         exception_check(status);
+        status = da_options_set(handle, "leaf size", leaf_size);
+        exception_check(status);
+
         if (check_data == true) {
             std::string yes_str = "yes";
             status = da_options_set(handle, "check data", yes_str.data());

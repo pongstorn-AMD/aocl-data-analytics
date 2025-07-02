@@ -52,7 +52,7 @@ class SVC(SVC_sklearn):
     """
 
     def __init__(self, C=1.0, kernel='rbf', degree=3, gamma='scale', coef0=0.0, shrinking=False,
-                 probability=False, tol=0.001, cache_size=200, class_weight=None, verbose=False,
+                 probability=False, tol=0.001, cache_size=200.0, class_weight=None, verbose=False,
                  max_iter=-1, decision_function_shape='ovr', break_ties=False, random_state=None):
         # Supported attributes
         self.C = C
@@ -63,11 +63,11 @@ class SVC(SVC_sklearn):
         self.tol = tol
         self.max_iter = max_iter
         self.decision_function_shape = decision_function_shape
+        self.cache_size = cache_size
 
         # Check for unsupported attributes
         self.shrinking = shrinking
         self.probability = probability
-        self.cache_size = cache_size
         self.class_weight = class_weight
         self.verbose = verbose
         self.break_ties = break_ties
@@ -83,10 +83,6 @@ class SVC(SVC_sklearn):
         if probability is not False:
             warnings.warn(
                 "probability is not supported and has been ignored.", category=RuntimeWarning)
-
-        if cache_size != 200:
-            warnings.warn(
-                "cache_size is not supported and has been ignored.", category=RuntimeWarning)
 
         if class_weight is not None:
             warnings.warn(
@@ -109,7 +105,7 @@ class SVC(SVC_sklearn):
 
         # Translate options to aocl-da ones
         self.svc = SVC_da(C=self.C, kernel=self.kernel, degree=self.degree, gamma=self.gamma,
-                          coef0=self.coef0, tol=self.tol, max_iter=self.max_iter)
+                          coef0=self.coef0, tol=self.tol, cache_size=self.cache_size, max_iter=self.max_iter)
 
     def fit(self, X, y):
         if isinstance(self.gamma, str):
@@ -242,7 +238,7 @@ class SVR(SVR_sklearn):
     """
 
     def __init__(self, kernel='rbf', degree=3, gamma='scale', coef0=0.0, tol=0.001, C=1.0,
-                 epsilon=0.1, shrinking=False, cache_size=200, verbose=False, max_iter=-1):
+                 epsilon=0.1, shrinking=False, cache_size=200.0, verbose=False, max_iter=-1):
         # Supported attributes
         self.epsilon = epsilon
         self.C = C
@@ -252,10 +248,10 @@ class SVR(SVR_sklearn):
         self.coef0 = coef0
         self.tol = tol
         self.max_iter = max_iter
+        self.cache_size = cache_size
 
         # Check for unsupported attributes
         self.shrinking = shrinking
-        self.cache_size = cache_size
         self.verbose = verbose
 
         if kernel == 'precomputed':
@@ -264,10 +260,6 @@ class SVR(SVR_sklearn):
         if shrinking is not False:
             warnings.warn(
                 "shrinking is not supported and has been ignored.", category=RuntimeWarning)
-
-        if cache_size != 200:
-            warnings.warn(
-                "cache_size is not supported and has been ignored.", category=RuntimeWarning)
 
         if verbose is not False:
             warnings.warn(
@@ -278,7 +270,7 @@ class SVR(SVR_sklearn):
 
         # Translate options to aocl-da ones
         self.svr = SVR_da(C=self.C, epsilon=self.epsilon, kernel=self.kernel, degree=self.degree,
-                          gamma=self.gamma, coef0=self.coef0, tol=self.tol, max_iter=self.max_iter)
+                          gamma=self.gamma, coef0=self.coef0, tol=self.tol, cache_size = self.cache_size, max_iter=self.max_iter)
 
     def fit(self, X, y):
         if isinstance(self.gamma, str):
@@ -378,7 +370,7 @@ class NuSVC(NuSVC_sklearn):
     """
 
     def __init__(self, nu=0.5, kernel='rbf', degree=3, gamma='scale', coef0=0.0, shrinking=False,
-                 probability=False, tol=0.001, cache_size=200, class_weight=None, verbose=False,
+                 probability=False, tol=0.001, cache_size=200.0, class_weight=None, verbose=False,
                  max_iter=-1, decision_function_shape='ovr', break_ties=False, random_state=None):
         # Supported attributes
         self.nu = nu
@@ -389,11 +381,11 @@ class NuSVC(NuSVC_sklearn):
         self.gamma = gamma
         self.max_iter = max_iter
         self.decision_function_shape = decision_function_shape
+        self.cache_size = cache_size
 
         # Check for unsupported attributes
         self.shrinking = shrinking
         self.probability = probability
-        self.cache_size = cache_size
         self.class_weight = class_weight
         self.verbose = verbose
         self.break_ties = break_ties
@@ -409,10 +401,6 @@ class NuSVC(NuSVC_sklearn):
         if probability is not False:
             warnings.warn(
                 "probability is not supported and has been ignored.", category=RuntimeWarning)
-
-        if cache_size != 200:
-            warnings.warn(
-                "cache_size is not supported and has been ignored.", category=RuntimeWarning)
 
         if class_weight is not None:
             warnings.warn(
@@ -435,7 +423,7 @@ class NuSVC(NuSVC_sklearn):
 
         # Translate options to aocl-da ones
         self.nusvc = NuSVC_da(nu=self.nu, kernel=self.kernel, degree=self.degree, gamma=self.gamma,
-                              coef0=self.coef0, tol=self.tol, max_iter=self.max_iter)
+                              coef0=self.coef0, tol=self.tol, cache_size=self.cache_size, max_iter=self.max_iter)
 
     def fit(self, X, y):
         if isinstance(self.gamma, str):
@@ -568,7 +556,7 @@ class NuSVR(NuSVR_sklearn):
     """
 
     def __init__(self, nu=0.5, C=1.0, kernel='rbf', degree=3, gamma='scale', coef0=0.0,
-                 shrinking=False, tol=0.001, cache_size=200, verbose=False, max_iter=-1):
+                 shrinking=False, tol=0.001, cache_size=200.0, verbose=False, max_iter=-1):
         # Supported attributes
         self.nu = nu
         self.C = C
@@ -578,10 +566,10 @@ class NuSVR(NuSVR_sklearn):
         self.tol = tol
         self.gamma = gamma
         self.max_iter = max_iter
+        self.cache_size = cache_size
 
         # Check for unsupported attributes
         self.shrinking = shrinking
-        self.cache_size = cache_size
         self.verbose = verbose
 
         if kernel == 'precomputed':
@@ -590,10 +578,6 @@ class NuSVR(NuSVR_sklearn):
         if shrinking is not False:
             warnings.warn(
                 "shrinking is not supported and has been ignored.", category=RuntimeWarning)
-
-        if cache_size != 200:
-            warnings.warn(
-                "cache_size is not supported and has been ignored.", category=RuntimeWarning)
 
         if verbose is not False:
             warnings.warn(
@@ -604,7 +588,7 @@ class NuSVR(NuSVR_sklearn):
 
         # Translate options to aocl-da ones
         self.nusvr = NuSVR_da(nu=self.nu, C=self.C, kernel=self.kernel, degree=self.degree,
-                              gamma=self.gamma, coef0=self.coef0, tol=self.tol, max_iter=self.max_iter)
+                              gamma=self.gamma, coef0=self.coef0, tol=self.tol, cache_size=self.cache_size, max_iter=self.max_iter)
 
     def fit(self, X, y):
         if isinstance(self.gamma, str):

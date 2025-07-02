@@ -103,7 +103,7 @@ Options
 
          "weights", "string", ":math:`s=` `uniform`", "Weight function used to compute the k-nearest neighbors.", ":math:`s=` `distance`, or `uniform`."
          "metric", "string", ":math:`s=` `euclidean`", "Metric used to compute the pairwise distance matrix.", ":math:`s=` `cityblock`, `cosine`, `euclidean`, `l1`, `l2`, `manhattan`, `minkowski`, or `sqeuclidean`."
-         "algorithm", "string", ":math:`s=` `brute`", "Algorithm used to compute the k-nearest neighbors.", ":math:`s=` `brute`."
+         "algorithm", "string", ":math:`s=` `auto`", "Algorithm used to compute the k-nearest neighbors.", ":math:`s=` `auto`, `brute`, or `kd tree`."
          "minkowski parameter", "real", ":math:`r=2`", "Minkowski parameter for metric used for the computation of k-nearest neighbors.", ":math:`0 < r`"
          "number of neighbors", "integer", ":math:`i=5`", "Number of neighbors considered for k-nearest neighbors.", ":math:`1 \le i`"
          "check data", "string", ":math:`s=` `no`", "Check input data for NaNs prior to performing computation.", ":math:`s=` `no`, or `yes`."

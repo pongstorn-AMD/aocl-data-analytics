@@ -23,14 +23,63 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 
+# pylint: disable=missing-function-docstring,too-many-locals,no-value-for-parameter
+
 """
 Miscellaneous Python tests
 """
 
 import numpy as np
 import pytest
-from aoclda.basic_stats import harmonic_mean, mean, variance, quantile, covariance_matrix, standardize
+from aoclda.basic_stats import (harmonic_mean, mean, variance,
+                                quantile, covariance_matrix, standardize)
+from aoclda.tools import _debug as dbg
 from aoclda.factorization import PCA
+
+
+def test_context_getsetters():
+    # Test the hidden context registry
+    # interface tests
+
+    with pytest.raises(TypeError) as _:
+        dbg.set()
+    with pytest.raises(TypeError) as _:
+        dbg.set("string")
+    with pytest.raises(TypeError) as _:
+        dbg.get(360)
+    with pytest.raises(TypeError) as _:
+        dbg.set({"string": 42})
+
+    # functionality
+    dic = {"key1": "value1", "key2": "2", "key3": "three", "key4": "quad"}
+    dbg.set({"key1": "ignored", "key2": "also ignored", "key3": "?", "key4": "??"})
+    # make sure keys can be updated
+    dbg.set(dic)
+    _ = dbg.get(["key1", "key2"])
+    _ = dbg.get(("key2", "key3"))
+    # erase key2, key4
+    dbg.set({"key2": ""})
+    dbg.set({"key4": None})
+    # check that only keys 1 and 3 are present
+    for k in ["key1", "key3"]:
+        d = dbg.get(k)
+        assert d[k] == dic[k]
+    # check that these keys don't exist
+    for k in ["key2", "key4"]:
+        with pytest.raises(Exception) as _:
+            _ = dbg.get(k)
+    # print all the registy
+    dbg.get()
+    dbg.set({"test": "value", "another_test": "42"})
+    dbg.get()
+    print("Context registry information:")
+    for k, v in dbg.get(["test", "another_test"]).items():
+        print(f"[{k}] = {v}")
+
+    key = "non_existent_key"
+    with pytest.raises(Exception) as _:
+        _ = dbg.get(key)
+
 
 @pytest.mark.parametrize("numpy_precision", [np.float64, np.float32])
 @pytest.mark.parametrize("numpy_order", ["C", "F"])
@@ -39,12 +88,12 @@ def test_array_slicing(numpy_precision, numpy_order):
     Use basic statistics and PCA APIs to test we are correctly handling array slicing for input data
     """
     a_tmp = np.array([[1.1, 2.213, 3.3, 1.2], [4, 5.013, 6, 4.3], [1.5, 2.833, 4.3, 4.2]],
-                 dtype=numpy_precision, order=numpy_order)
+                     dtype=numpy_precision, order=numpy_order)
 
     a = np.array([[1.1, 2.213, 3.3], [4, 5.013, 6]],
                  dtype=numpy_precision, order=numpy_order)
 
-    a_slice = a_tmp[0:2,0:3]
+    a_slice = a_tmp[0:2, 0:3]
 
     # Compute some statistics using a
     means = mean(a, axis="row")
@@ -89,5 +138,5 @@ def test_array_slicing(numpy_precision, numpy_order):
     pca_slice = PCA(n_components=2)
     pca_slice.fit(a_slice)
 
-    assert pca.principal_components == pytest.approx(pca_slice.principal_components, tol)
-
+    assert pca.principal_components == pytest.approx(
+        pca_slice.principal_components, tol)

@@ -27,9 +27,9 @@
 Support Vector Machine Python test script
 """
 
+from aoclda.svm import SVC, SVR, NuSVC, NuSVR
 import numpy as np
 import pytest
-from aoclda.svm import SVC, SVR, NuSVC, NuSVR
 
 
 @pytest.mark.parametrize("numpy_precision", [np.float64, np.float32])
@@ -39,8 +39,13 @@ def test_svc_functionality(numpy_precision, numpy_order):
     Test the functionality of the Python wrapper
     """
 
-    X_train = np.array([[1.92, -0.52], [1.76, 0.84], [-1.02, 0.94], [0.79, 1.34], [2.86, -0.43]],
-                       dtype=numpy_precision, order=numpy_order)
+    X_train = np.array(
+        [[1.92, -0.52],
+         [1.76, 0.84],
+         [-1.02, 0.94],
+         [0.79, 1.34],
+         [2.86, -0.43]],
+        dtype=numpy_precision, order=numpy_order)
     X_test = np.array([[-0.15, 2.33], [-1.14, 1.11]],
                       dtype=numpy_precision, order=numpy_order)
     y_train = np.array([0, 0, 2, 1, 0],
@@ -54,16 +59,24 @@ def test_svc_functionality(numpy_precision, numpy_order):
     expected_bias = np.array([0.6614310488724978, 0.5365371320535124, 0.0])
     expected_n_support_per_class = np.array([3, 1, 1])
     expected_support_idx = np.array([0, 1, 4, 3, 2])
-    expected_dual_coef = np.array(
-        [[0.1567003658615869, 0.6042853359149776, 0.23901429822343534, -1.0, -1.0], [0.2661922344693693, 0.4034513140618167, 0.330356451468814, 1.0, -1.0]])
+    expected_dual_coef = np.array([[0.1567003658615869, 0.6042853359149776,
+                                    0.23901429822343534, -1.0, -1.0],
+                                   [0.2661922344693693, 0.4034513140618167,
+                                    0.330356451468814, 1.0, -1.0]])
     expected_support_vectors = np.array(
-        [[1.92, -0.52], [1.76, 0.84], [2.86, -0.43], [0.79, 1.34], [-1.02, 0.94]])
+        [[1.92, -0.52],
+         [1.76, 0.84],
+         [2.86, -0.43],
+         [0.79, 1.34],
+         [-1.02, 0.94]])
     expected_predict = np.array([0, 2])
     expected_score = 0.5
     expected_decision_ovr = np.array(
-        [[2.1647936191078374, 0.9012607489781155, -0.1192298001005942], [1.0595892420507806, -0.20380478276768527, 2.191835754976765]])
+        [[2.1647936191078374, 0.9012607489781155, -0.1192298001005942],
+         [1.0595892420507806, -0.20380478276768527, 2.191835754976765]])
     expected_decision_ovo = np.array(
-        [[0.5080428914586723, 0.4697303287293784, 0.08714885163887187], [0.638684111555492, -0.42100181649081425, -0.9347511031340464]])
+        [[0.5080428914586723, 0.4697303287293784, 0.08714885163887187],
+         [0.638684111555492, -0.42100181649081425, -0.9347511031340464]])
 
     tol = np.sqrt(np.finfo(numpy_precision).eps)
 
@@ -110,8 +123,13 @@ def test_svr_functionality(numpy_precision, numpy_order):
     Test the functionality of the Python wrapper
     """
 
-    X_train = np.array([[1.29, -0.73], [2.3, -0.47], [-1.73, 1.66], [0.11, -0.38], [-1.03, 0.48]],
-                       dtype=numpy_precision, order=numpy_order)
+    X_train = np.array(
+        [[1.29, -0.73],
+         [2.3, -0.47],
+         [-1.73, 1.66],
+         [0.11, -0.38],
+         [-1.03, 0.48]],
+        dtype=numpy_precision, order=numpy_order)
     X_test = np.array([[-1.61, 0.99], [0.11, 0.35]],
                       dtype=numpy_precision, order=numpy_order)
     y_train = np.array([-5.66, 45.94, 53.25, -21.96, -2.46],
@@ -128,7 +146,11 @@ def test_svr_functionality(numpy_precision, numpy_order):
     expected_dual_coef = np.array(
         [[-0.7796538205625038, 1.0, 1.0, -1.0, -0.22034617943749626]])
     expected_support_vectors = np.array(
-        [[1.29, -0.73], [2.3, -0.47], [-1.73, 1.66], [0.11, -0.38], [-1.03, 0.48]])
+        [[1.29, -0.73],
+         [2.3, -0.47],
+         [-1.73, 1.66],
+         [0.11, -0.38],
+         [-1.03, 0.48]])
     expected_predict = np.array([-1.1380735884612876, -2.9877681126775064])
     expected_score = -9.16417571463822
 
@@ -166,8 +188,8 @@ def test_nusvc_functionality(numpy_precision, numpy_order):
     Test the functionality of the Python wrapper
     """
 
-    X_train = np.array([[1.2, 0.92], [1.39, 1.06], [1.24, 0.91], [1.21, 1.05], [0.65, -0.75]],
-                       dtype=numpy_precision, order=numpy_order)
+    X_train = np.array([[1.2, 0.92], [1.39, 1.06], [1.24, 0.91], [1.21, 1.05], [
+                       0.65, -0.75]], dtype=numpy_precision, order=numpy_order)
     X_test = np.array([[-0.02, 0.57], [0.89, -0.77]],
                       dtype=numpy_precision, order=numpy_order)
     y_train = np.array([0, 0, 0, 0, 1],
@@ -233,8 +255,13 @@ def test_nusvr_functionality(numpy_precision, numpy_order):
     Test the functionality of the Python wrapper
     """
 
-    X_train = np.array([[2.07, 0.43], [-0.43, 0.3], [-0.04, 0.39], [0.46, 0.09], [-1.38, -0.54]],
-                       dtype=numpy_precision, order=numpy_order)
+    X_train = np.array(
+        [[2.07, 0.43],
+         [-0.43, 0.3],
+         [-0.04, 0.39],
+         [0.46, 0.09],
+         [-1.38, -0.54]],
+        dtype=numpy_precision, order=numpy_order)
     X_test = np.array([[-0.87, 1.73], [-1.1, -0.82]],
                       dtype=numpy_precision, order=numpy_order)
     y_train = np.array([125.09, -1.89, 22.09, 27.03, -98.74],
