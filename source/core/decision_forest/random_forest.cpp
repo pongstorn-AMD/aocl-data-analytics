@@ -244,13 +244,24 @@ template <typename T> da_status random_forest<T>::fit() {
         da_status tree_status;
         tree_status = forest[i]->set_training_data(n_samples, n_features, X, ldx, y,
                                                    n_class, n_obs, nullptr);
+//#define DUMP_TREES
+#ifdef DUMP_TREES
+        tree_status = forest[i]->fit(i);
+#else                                                   
         tree_status = forest[i]->fit();
+#endif        
         forest[i]->clear_working_memory();
         if (tree_status != da_status_success) {
 #pragma omp atomic
             n_failed_tree++;
         }
     }
+//#define DUMP_TREES_STAT
+#ifdef DUMP_TREES_STAT
+    for (da_int i = 0; i < n_tree; i++) {
+        std::cout << std::format("PM:PM tree {} nodes {} leaves {}\n", i, forest[i]->num_nodes(), forest[i]->num_leaves());
+    }
+#endif    
 
     if (n_failed_tree != 0)
         return da_error(this->err, da_status_internal_error, // LCOV_EXCL_LINE

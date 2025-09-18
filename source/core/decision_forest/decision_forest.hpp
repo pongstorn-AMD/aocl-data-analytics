@@ -33,6 +33,8 @@
 #include "options.hpp"
 
 #include <deque>
+#include <format>
+#include <fstream>
 #include <functional>
 #include <limits>
 #include <numeric>
@@ -190,6 +192,20 @@ template <typename T> class decision_tree : public basic_handle<T> {
     void find_best_split(node<T> &current_node, T feat_thresh, T maximum_split_score,
                          split<T> &sp);
     da_status fit();
+    // PM:PM
+    da_status fit(da_int i) {
+      da_status s = fit();
+
+      std::string name = std::format("tree_{}.dot",i);
+      std::ofstream treeDescFile(name.c_str());
+      if (treeDescFile.is_open()) {
+          dump_tree(treeDescFile);
+          treeDescFile.close();
+      } else {
+          std::cerr << "Error opening file " << name << std::endl;
+      }
+      return s;
+    }
     da_status predict(da_int nsamp, da_int n_features, const T *X_test, da_int ldx,
                       da_int *y_pred, da_int mode = 0);
     da_status predict_proba(da_int nsamp, da_int n_features, const T *X_test, da_int ldx,
@@ -220,6 +236,13 @@ template <typename T> class decision_tree : public basic_handle<T> {
 
     // Setters for testing purposes
     void set_bootstrap(bool bs);
+
+  private:
+    // PM:PM to write the tree to file
+    void dump_tree(std::ofstream& of);
+  public:
+    da_int num_nodes() { return n_nodes; }
+    da_int num_leaves() { return n_leaves; }
 };
 
 using namespace da_errors;

@@ -49,9 +49,13 @@ target_compile_definitions(
   decision_tree PRIVATE DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/df_data")
 
 add_executable(random_forest random_forest.cpp)
-
 target_compile_definitions(
   random_forest PRIVATE DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/df_data")
+
+add_executable(random_forest_pm random_forest_pm.cpp)
+target_compile_definitions(
+  random_forest_pm PRIVATE DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/df_data")
+
 
 add_executable(pca pca.cpp)
 target_link_libraries(pca PRIVATE aocl-da)
@@ -92,6 +96,7 @@ set(EXAMPLE_EXES
     datastore
     decision_tree
     random_forest
+    random_forest_pm
     metrics
     knn
     svc

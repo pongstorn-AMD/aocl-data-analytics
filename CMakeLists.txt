@@ -58,9 +58,12 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
                                                "RelWithDebInfo")
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(CMAKE_CXX_EXTENSIONS OFF)
+#set(CMAKE_CXX_STANDARD 17)
+#set(CMAKE_CXX_STANDARD_REQUIRED True)
+#set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+set(CMAKE_CXX_EXTENSIONS OFF) # Recommended for strict standard adherence
 
 # Options
 option(BUILD_EXAMPLES "Build the example programs" ON)

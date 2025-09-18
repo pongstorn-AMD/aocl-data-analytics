@@ -37,9 +37,12 @@
 
 #include <chrono>
 #include <deque>
+#include <format>
+#include <fstream>
 #include <functional>
 #include <limits>
 #include <numeric>
+#include <queue>
 #include <random>
 #include <type_traits>
 #include <vector>
@@ -336,6 +339,56 @@ da_status decision_tree<T>::add_node(da_int parent_idx, bool is_left, T score,
     n_nodes += 1;
 
     return status;
+}
+
+// PM:PM
+template <typename T> void decision_tree<T>::dump_tree(std::ofstream& f) {
+    constexpr bool LEFT  = true;
+    constexpr bool RIGHT = !LEFT;
+
+    if (f.is_open()) {
+        // print header
+        f << "digraph Tree {\n";
+        f << "node [shape=box, style=\"filled, rounded\", color=\"black\", fontname=\"helvetica\"] ;\n";
+        f << "edge [fontname=\"helvetica\"] ;\n";
+
+        // iterate through the tree
+        std::queue<std::tuple<da_int,da_int,bool>> nodes_to_print;
+        nodes_to_print.emplace(0,-1,LEFT); // root node
+        while (!nodes_to_print.empty()) {
+            auto [idx, pidx, is_left] = nodes_to_print.front(); nodes_to_print.pop();
+            auto n = tree[idx];
+            //string msg = std::format("dump node idx {} , pidx {} , is_left {}\n", idx, pidx, is_left);
+            //std::cout << msg;
+
+            std::string node_str;
+            if (n.is_leaf) {
+                node_str = std::format("{} [label=\"sc = {} : ns = {} : cl = {}\", color=\"black\", fillcolor=\"white\"]\n"
+                                      , idx, n.score, n.n_samples, n.y_pred);
+            } else {
+                node_str = std::format("{} [label=\"f[{}] < {}\n sc = {} : ns = {} : cl = {}\", color=\"black\", fillcolor=\"white\"]\n"
+                                      , idx, n.feature, n.x_threshold, n.score, n.n_samples, n.y_pred);
+            }
+            f << node_str << "\n";
+
+            if (pidx != -1) {
+                if (is_left == LEFT )
+                    f << pidx << " -> " << idx << " [labeldistance=2.5, labelangle=45, headlabel=\"True\"] ;\n";
+                else
+                    f << pidx << " -> " << idx << " ;\n";
+            }
+
+            if (n.left_child_idx != -1) 
+                nodes_to_print.emplace(n.left_child_idx,  idx, LEFT);
+            if (n.right_child_idx != -1) 
+                nodes_to_print.emplace(n.right_child_idx, idx, RIGHT);
+        }
+
+        // print footer
+        f << "}\n";
+        f.close();
+        //std::cout << "done dump_tree\n";
+    }
 }
 
 /* Partition samples_idx so that all the values below x_thresh are first */
